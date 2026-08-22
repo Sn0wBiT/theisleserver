@@ -117,12 +117,9 @@ local function prime(steam, args)
     return true, value and "prime eligible" or "prime cleared"
 end
 
-local function message(steam, args, forcePrivate)
+local function message(steam, args)
     local text = Runtime.jsonReadString(args, "message")
     if text == nil or text == "" then return false, "missing message" end
-    if forcePrivate or Runtime.jsonReadString(args, "delivery") == "private_chat" then
-        return Messaging.privateChat(steam, text)
-    end
     return Messaging.notify(steam, text)
 end
 
@@ -130,8 +127,7 @@ Actions.handlers = {
     setgrowth = setGrowth, heal = heal, kill = kill, setvital = setVital, teleport = teleport,
     mutations = mutations, prime = prime,
     unprime = function(steam) return prime(steam, '{"value":false}') end,
-    notify = function(steam, args) return message(steam, args, false) end,
-    private_chat = function(steam, args) return message(steam, args, true) end,
+    notify = message,
     human = Human.execute,
     revive = revive
 }

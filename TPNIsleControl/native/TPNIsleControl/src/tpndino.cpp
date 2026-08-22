@@ -307,74 +307,6 @@ namespace TPNIsleControlNative
 
     Transport* active_transport{};
 
-    auto parse_object_address(std::string_view text) -> Unreal::UObject*
-    {
-        if (text.starts_with("0x") || text.starts_with("0X")) text.remove_prefix(2);
-        std::uintptr_t value{};
-        const auto result = std::from_chars(text.data(), text.data() + text.size(), value, 16);
-        if (result.ec != std::errc{} || result.ptr != text.data() + text.size() || value < 0x10000)
-        {
-            return nullptr;
-        }
-
-        MEMORY_BASIC_INFORMATION memory{};
-        if (!VirtualQuery(reinterpret_cast<void*>(value), &memory, sizeof(memory)) ||
-            memory.State != MEM_COMMIT || (memory.Protect & (PAGE_GUARD | PAGE_NOACCESS)))
-        {
-            return nullptr;
-        }
-        return reinterpret_cast<Unreal::UObject*>(value);
-    }
-
-    auto deliver_private_chat(Unreal::UObject* controller,
-                              const std::wstring& sender,
-                              const std::wstring& sender_steam,
-                              const std::wstring& message) -> bool
-    {
-        if (!controller) return false;
-
-        auto* function = controller->GetFunctionByNameInChain(L"UpdateChat");
-        if (!function) return false;
-
-        auto* sender_property = function->FindProperty(Unreal::FName{L"Sender", Unreal::FNAME_Find});
-        auto* text_property = function->FindProperty(Unreal::FName{L"Text", Unreal::FNAME_Find});
-        auto* steam_property = function->FindProperty(Unreal::FName{L"SenderSteamId", Unreal::FNAME_Find});
-        auto* mode_property = function->FindProperty(Unreal::FName{L"ChatMode", Unreal::FNAME_Find});
-        if (!sender_property || !text_property || !steam_property || !mode_property) return false;
-
-        const auto parameter_size = static_cast<std::size_t>(function->GetParmsSize());
-        const auto field_fits = [parameter_size](Unreal::FProperty* property) {
-            const auto offset = property->GetOffset_Internal();
-            const auto size = property->GetSize();
-            return offset >= 0 && size > 0 && static_cast<std::size_t>(offset) + size <= parameter_size;
-        };
-        if (!field_fits(sender_property) || !field_fits(text_property) ||
-            !field_fits(steam_property) || !field_fits(mode_property) ||
-            sender_property->GetSize() > 16 || text_property->GetSize() > 16 ||
-            steam_property->GetSize() != sizeof(Unreal::FString))
-        {
-            return false;
-        }
-
-        std::vector<std::uint8_t> buffer(parameter_size, 0);
-        auto* parameters = buffer.data();
-
-        Unreal::FText sender_text{Unreal::FString{sender.c_str()}};
-        Unreal::FText body_text{Unreal::FString{message.c_str()}};
-        std::memcpy(parameters + sender_property->GetOffset_Internal(),
-                    &sender_text,
-                    sender_property->GetSize());
-        std::memcpy(parameters + text_property->GetOffset_Internal(),
-                    &body_text,
-                    text_property->GetSize());
-
-        new (parameters + steam_property->GetOffset_Internal()) Unreal::FString{sender_steam.c_str()};
-        *(parameters + mode_property->GetOffset_Internal()) = 0; // EChatMode::Spatial
-
-        controller->ProcessEvent(function, parameters);
-        return true;
-    }
-
     auto lua_configure(const LuaMadeSimple::Lua& state) -> int
     {
         if (!active_transport || !state.is_string(1) || !state.is_string(2))
@@ -413,23 +345,6 @@ namespace TPNIsleControlNative
         return 1;
     }
 
-    auto lua_private_chat(const LuaMadeSimple::Lua& state) -> int
-    {
-        if (!state.is_string(1) || !state.is_string(2) || !state.is_string(3) || !state.is_string(4))
-        {
-            state.set_bool(false);
-            return 1;
-        }
-
-        auto* controller = parse_object_address(state.get_string(1));
-        const auto sender = utf8_to_wide(state.get_string(2));
-        const auto sender_steam = utf8_to_wide(state.get_string(3));
-        const auto message = utf8_to_wide(state.get_string(4));
-        state.set_bool(controller && sender && sender_steam && message &&
-                       deliver_private_chat(controller, *sender, *sender_steam, *message));
-        return 1;
-    }
-
     class TPNIsleControlMod : public CppUserModBase
     {
       public:
@@ -456,7 +371,6 @@ namespace TPNIsleControlNative
             lua.register_function("TPNIsleControlHttpConfigure", lua_configure);
             lua.register_function("TPNIsleControlHttpEnqueue", lua_enqueue);
             lua.register_function("TPNIsleControlHttpPoll", lua_poll);
-            lua.register_function("TPNIsleControlSendPrivateChat", lua_private_chat);
         }
 
       private:

@@ -6,7 +6,6 @@ Lua mod:
 - `TPNIsleControlHttpConfigure(url, token)`
 - `TPNIsleControlHttpEnqueue(json)`
 - `TPNIsleControlHttpPoll()`
-- `TPNIsleControlSendPrivateChat(controllerAddress, sender, senderSteamId, message)`
 
 WinHTTP runs on a worker thread. Unreal object access remains in Lua on the game
 thread. The native transport accepts only loopback bridge URLs.

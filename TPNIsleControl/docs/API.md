@@ -237,7 +237,7 @@ Unknown Steam IDs are valid and return a zero balance with unstarted quests.
 ### `POST /quests/{steam}/claim/{questId}`
 
 Claims a completed quest in its current window. A successful claim updates the
-token balance and queues an in-game `notify` command with private-chat delivery.
+token balance and queues an in-game `notify` command.
 
 ```bash
 curl -X POST \
@@ -338,7 +338,6 @@ All current game-side commands target the player identified by `steam`.
 | `prime` | `{ "value"?: boolean }` | Sets prime eligibility; `value` defaults to `true`. |
 | `unprime` | `{}` | Clears prime eligibility. |
 | `notify` | `{ "message": string }` | Shows a notification to an online player. |
-| `private_chat` | `{ "message": string }` | Sends a private line to an online player's chat. |
 | `human` | `{}` | Test command: swaps the player's live dinosaur to the playable Generation 2 human. |
 
 For `mutations`, provide at least one of `slot1` through `slot4`. The aliases
@@ -357,7 +356,6 @@ Examples:
 { "verb": "prime",     "steam": "76561198000000000", "args": { "value": true } }
 { "verb": "unprime",   "steam": "76561198000000000", "args": {} }
 { "verb": "notify",    "steam": "76561198000000000", "args": { "message": "Welcome!" } }
-{ "verb": "private_chat", "steam": "76561198000000000", "args": { "message": "Your quests..." } }
 { "verb": "human",       "steam": "76561198000000000", "args": {} }
 ```
 

@@ -6,12 +6,12 @@
       "claimed": false
     },
     "76561198041372743:daily_play_30:2026-08-22": {
-      "progress": 7205,
+      "progress": 7265,
       "completed": true,
       "claimed": false
     },
     "76561198041372743:monthly_play_10h:2026-08": {
-      "progress": 7205,
+      "progress": 7265,
       "completed": false,
       "claimed": false
     }
@@ -19,10 +19,10 @@
   "tokenBalances": {},
   "lastSnapshots": {
     "76561198041372743": {
-      "ts": 1787422076,
-      "hp": 25.466497421265,
-      "addr": "0x1AC41654930",
-      "growth": 0.35863867402077
+      "ts": 1787423145,
+      "hp": 26.242330551147,
+      "addr": "0x26F778EDB70",
+      "growth": 0.36075028777122
     }
   }
 }

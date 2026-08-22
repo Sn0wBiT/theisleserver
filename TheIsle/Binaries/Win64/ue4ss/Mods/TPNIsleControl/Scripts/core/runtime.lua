@@ -6,8 +6,7 @@ Runtime.paths = {
     config = Runtime.SAVED_DIR .. "/config.json",
     events = Runtime.SAVED_DIR .. "/events.ndjson",
     commands = Runtime.SAVED_DIR .. "/commands.ndjson",
-    results = Runtime.SAVED_DIR .. "/results.ndjson",
-    uiCandidates = Runtime.SAVED_DIR .. "/ui-candidates.log"
+    results = Runtime.SAVED_DIR .. "/results.ndjson"
 }
 
 Runtime.config = {
