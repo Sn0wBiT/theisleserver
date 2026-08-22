@@ -3,7 +3,7 @@ steamapps/*
 Engine/*
 node_modules
 TheIsle/*
-*.log
+**.log
 docs/private
 /TPNIsleControl/native/build/
 TPNIsleControl\bridge\data\state.json
@@ -14,3 +14,4 @@ TheIsle/Binaries/*
 TheIsle/Binaries/Win64/*
 !TheIsle/Binaries/Win64/ue4ss/
 !TheIsle/Binaries/Win64/ue4ss/**
+/TheIsle/Binaries/Win64/ue4ss/*.log
