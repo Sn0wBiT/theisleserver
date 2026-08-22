@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { JsonStore } from "./store.js";
 import { QuestEngine } from "./quest-engine.js";
 import { formatQuestMessage } from "./quest-message.js";
+import { completeNdjsonChunk } from "./ndjson.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bridgeDir = path.resolve(here, "..");
@@ -52,12 +53,15 @@ function tail(file, onLine) {
   fs.readSync(fd, buf, 0, len, cursor);
   fs.closeSync(fd);
 
-  cursors.set(file, stat.size);
+  // The Lua writer may still be appending the final record. Advance only over
+  // newline-terminated bytes so that an incomplete record is read again on the
+  // next poll instead of being parsed and then permanently skipped.
+  const chunk = completeNdjsonChunk(buf);
+  if (chunk.bytesConsumed === 0) return;
 
-  // NDJSON writers append complete lines. Ignore the final partial line if any.
-  const text = buf.toString("utf8");
-  for (const line of text.split(/\r?\n/)) {
-    if (!line.trim()) continue;
+  cursors.set(file, cursor + chunk.bytesConsumed);
+
+  for (const line of chunk.lines) {
     try {
       onLine(JSON.parse(line));
     } catch {
