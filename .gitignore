@@ -1,0 +1,8 @@
+TheIsleServer.exe
+steamapps/*
+Engine/*
+node_modules
+TheIsle/*
+*.log
+# Includes
+!TheIsle/Binaries/Win64/ue4ss
