@@ -46,6 +46,24 @@ For the bridge's HTTP endpoints and complete game-command catalog, see
 }
 ```
 
+## Player quest requests
+
+When a player enters `/quests` in client chat, the game-process mod appends a
+request to `events.ndjson`:
+
+```json
+{
+  "type": "quest_request",
+  "ts": 1777000000,
+  "steam": "76561198000000000"
+}
+```
+
+The sidecar reads the player's current quest windows and token balance, formats
+all available quests, and queues a private `notify` command for that player.
+Requests older than 30 seconds are ignored so restarting the sidecar does not
+replay old chat responses.
+
 ## Results
 
 `results.ndjson`

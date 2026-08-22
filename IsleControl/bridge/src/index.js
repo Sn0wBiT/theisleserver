@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { JsonStore } from "./store.js";
 import { QuestEngine } from "./quest-engine.js";
+import { formatQuestMessage } from "./quest-message.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bridgeDir = path.resolve(here, "..");
@@ -122,9 +123,33 @@ function processNativeEvent(e) {
   }
 }
 
+function processQuestRequest(e) {
+  const steam = String(e?.steam || "");
+  const requestedAt = Number(e?.ts || 0);
+  const now = Math.floor(Date.now() / 1000);
+
+  if (!steam || !requestedAt) return;
+
+  // events.ndjson is replayed from the beginning after a bridge restart. Do
+  // not answer an old chat request when the requesting player reconnects.
+  if (requestedAt < now - 30 || requestedAt > now + 5) return;
+
+  const tokenBalance = Number(store.data.tokenBalances[steam] || 0);
+  const playerQuests = questEngine.getPlayerState(steam);
+
+  appendCommand({
+    verb: "notify",
+    steam,
+    args: {
+      message: formatQuestMessage(playerQuests, tokenBalance)
+    }
+  });
+}
+
 setInterval(() => {
   tail(eventsPath, (e) => {
     if (e.type === "snapshot") processSnapshot(e);
+    if (e.type === "quest_request") processQuestRequest(e);
   });
 
   tail(nativeEventsPath, processNativeEvent);

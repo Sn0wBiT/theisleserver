@@ -395,6 +395,57 @@ local function snapshotOnce()
 end
 
 -- ---------------------------------------------------------------------------
+-- Player chat commands
+-- ---------------------------------------------------------------------------
+
+local function unwrapHookParam(param)
+    if param == nil then return nil end
+
+    local value
+    local ok = pcall(function() value = param:get() end)
+    if ok and value ~= nil then return value end
+
+    return param
+end
+
+local function registerChatCommandHook()
+    local ok, err = pcall(function()
+        RegisterHook("/Script/TheIsle.TIPlayerController:ServerExecuteChatCommand",
+            function(ctrlParam, commandParam)
+                local ctrl = unwrapHookParam(ctrlParam)
+                if ctrl == nil then return end
+
+                local command = safeString(unwrapHookParam(commandParam))
+                command = command:match("^%s*(.-)%s*$") or ""
+                command = command:lower()
+
+                -- Accept both forms in case the game strips the slash before
+                -- invoking ServerExecuteChatCommand on a future build.
+                if command ~= "/quests" and command ~= "quests" then return end
+
+                local steam = getControllerSteamId(ctrl)
+                if steam == "" then
+                    log("/quests ignored: could not resolve requesting Steam ID")
+                    return
+                end
+
+                presenceUpdate(steam)
+                appendLine(EVENTS_PATH, string.format(
+                    '{"type":"quest_request","ts":%d,"steam":"%s"}',
+                    os.time(),
+                    jsonEscape(steam)
+                ))
+            end)
+    end)
+
+    if ok then
+        log("/quests chat hook registered")
+    else
+        log("/quests chat hook failed: " .. tostring(err))
+    end
+end
+
+-- ---------------------------------------------------------------------------
 -- Notifications
 -- ---------------------------------------------------------------------------
 
@@ -709,6 +760,7 @@ end
 
 loadConfig()
 registerPresenceHook()
+registerChatCommandHook()
 registerDiagnosticDamageHook()
 
 LoopInGameThreadWithDelay(config.presenceRefreshMs, function()
