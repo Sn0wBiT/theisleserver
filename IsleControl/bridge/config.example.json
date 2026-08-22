@@ -2,7 +2,7 @@
   "host": "127.0.0.1",
   "port": 31990,
   "apiToken": "CHANGE_ME",
-  "modSavedDir": "C:\\theisleserver\\TheIsle\\Binaries\\Win64\\Mods\\IsleControl\\Saved",
+  "modSavedDir": "C:\\theisleserver\\TheIsle\\Binaries\\Win64\\ue4ss\\Mods\\IsleControl\\Saved",
   "pollMs": 1000,
   "combatWindowSec": 20
 }

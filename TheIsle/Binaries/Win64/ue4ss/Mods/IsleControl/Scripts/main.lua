@@ -8,7 +8,7 @@
 --   * file IPC for external quest/API sidecar
 
 local MOD_NAME = "IsleControl"
-local SAVED_DIR = "Mods/IsleControl/Saved"
+local SAVED_DIR = "ue4ss/Mods/IsleControl/Saved"
 local CONFIG_PATH = SAVED_DIR .. "/config.json"
 local EVENTS_PATH = SAVED_DIR .. "/events.ndjson"
 local COMMANDS_PATH = SAVED_DIR .. "/commands.ndjson"
@@ -102,15 +102,20 @@ end
 local function safeString(value)
     if value == nil then return "" end
 
+    local okT, t = pcall(function() return value:ToString() end)
+    if okT and type(t) == "string" and t ~= "" then return t end
+
     local ok, s = pcall(function() return tostring(value) end)
     if ok and type(s) == "string" and s ~= "" and not s:find("^UObject") then
         return s
     end
 
-    local okT, t = pcall(function() return value:ToString() end)
-    if okT and type(t) == "string" then return t end
-
     return ""
+end
+
+local function normalizeSteamId(value)
+    local s = safeString(value)
+    return s:match("(%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d)") or ""
 end
 
 local function loadConfig()
@@ -180,14 +185,14 @@ local function getControllerSteamId(ctrl)
     local sid
     pcall(function() sid = ctrl:GetSteamId() end)
     if sid ~= nil then
-        local s = safeString(sid)
-        if s ~= "" and not s:find("^UObject") then return s end
+        local s = normalizeSteamId(sid)
+        if s ~= "" then return s end
     end
 
     local field
     pcall(function() field = ctrl.SteamId end)
     if field ~= nil then
-        local s = safeString(field)
+        local s = normalizeSteamId(field)
         if s ~= "" then return s end
     end
 

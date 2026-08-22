@@ -1,6 +1,8 @@
 # IsleControl IPC protocol
 
 The game-process side and the external sidecar communicate through NDJSON files.
+For the bridge's HTTP endpoints and complete game-command catalog, see
+[API.md](./API.md).
 
 ## Snapshots
 
