@@ -86,7 +86,8 @@ is configured, it requires that bearer token instead.
     {"steam":"76561198000000000","ts":1777000000,"growth":0.75}
   ],
   "events": [
-    {"type":"quest_request","steam":"76561198000000000","ts":1777000000}
+    {"type":"quest_request","steam":"76561198000000000","ts":1777000000},
+    {"type":"help_request","steam":"76561198000000000","ts":1777000000}
   ],
   "acknowledgements": ["previous-command-id"]
 }

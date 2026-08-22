@@ -70,10 +70,10 @@ and automatic fallback while the game server is restarting.
 }
 ```
 
-### Player quest requests
+### Player chat requests
 
-When file fallback is active and a player enters `/quests` in client chat, the
-game-process mod appends a request to `events.ndjson`:
+When file fallback is active, the game-process mod appends player chat requests
+to `events.ndjson`. `/quests` produces:
 
 ```json
 {
@@ -83,8 +83,11 @@ game-process mod appends a request to `events.ndjson`:
 }
 ```
 
+`/help` produces the same shape with `"type":"help_request"`.
+
 The sidecar reads the player's current quest windows and token balance, formats
 all available quests, and queues a private `notify` command for that player.
+Help requests similarly return the current player command list.
 Requests older than 30 seconds are ignored so restarting the sidecar does not
 replay old chat responses.
 

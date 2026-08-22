@@ -77,4 +77,17 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   });
   assert.equal(acknowledged.status, 200);
   assert.equal(await acknowledged.text(), "");
+
+  const helpResponse = await fetch(`${url}/game/sync`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      events: [{ type: "help_request", steam: "76561198000000000", ts: now }]
+    })
+  });
+  assert.equal(helpResponse.status, 200);
+  const helpCommand = JSON.parse(await helpResponse.text());
+  assert.equal(helpCommand.verb, "notify");
+  assert.match(helpCommand.args.message, /\/help\s+-/);
+  assert.match(helpCommand.args.message, /\/quests\s+-/);
 });

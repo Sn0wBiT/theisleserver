@@ -506,17 +506,25 @@ local function registerChatCommandHook()
 
                 -- Accept both forms in case the game strips the slash before
                 -- invoking ServerExecuteChatCommand on a future build.
-                if command ~= "/quests" and command ~= "quests" then return end
+                local eventType
+                if command == "/quests" or command == "quests" then
+                    eventType = "quest_request"
+                elseif command == "/help" or command == "help" then
+                    eventType = "help_request"
+                else
+                    return
+                end
 
                 local steam = getControllerSteamId(ctrl)
                 if steam == "" then
-                    log("/quests ignored: could not resolve requesting Steam ID")
+                    log(command .. " ignored: could not resolve requesting Steam ID")
                     return
                 end
 
                 presenceUpdate(steam)
                 sendGameEvent(string.format(
-                    '{"type":"quest_request","ts":%d,"steam":"%s"}',
+                    '{"type":"%s","ts":%d,"steam":"%s"}',
+                    eventType,
                     os.time(),
                     jsonEscape(steam)
                 ))
@@ -524,9 +532,9 @@ local function registerChatCommandHook()
     end)
 
     if ok then
-        log("/quests chat hook registered")
+        log("player chat command hook registered (/help, /quests)")
     else
-        log("/quests chat hook failed: " .. tostring(err))
+        log("player chat command hook failed: " .. tostring(err))
     end
 end
 

@@ -14,9 +14,9 @@ function progressText(quest) {
 
   if (quest.type === "play_seconds") {
     if (target >= 3600) {
-      return `${compactNumber(progress / 3600)}/${compactNumber(target / 3600)} hr`;
+      return `${compactNumber(progress / 3600)}/${compactNumber(target / 3600)} giờ`;
     }
-    return `${Math.floor(progress / 60)}/${compactNumber(target / 60)} min`;
+    return `${Math.floor(progress / 60)}/${compactNumber(target / 60)} phút`;
   }
 
   if (quest.type === "reach_growth") {
@@ -27,8 +27,8 @@ function progressText(quest) {
 }
 
 function statusText(quest) {
-  if (quest.claimed) return " (claimed)";
-  if (quest.completed) return " (complete)";
+  if (quest.claimed) return " (đã nhận)";
+  if (quest.completed) return " (đã hoàn thành)";
   return "";
 }
 
@@ -39,8 +39,8 @@ export function formatQuestMessage(quests, tokenBalance) {
     return `${periodLabel}: ${quest.name} ${progressText(quest)}${statusText(quest)}`;
   });
 
-  if (entries.length === 0) entries.push("No quests are currently available");
+  if (entries.length === 0) entries.push("Không có nhiệm vụ nào hiện đang khả dụng");
   entries.push(`Tokens: ${Math.max(0, finiteNumber(tokenBalance))}`);
 
-  return `Quests | ${entries.join(" | ")}`;
+  return `Nhiệm vụ | ${entries.join(" | ")}`;
 }

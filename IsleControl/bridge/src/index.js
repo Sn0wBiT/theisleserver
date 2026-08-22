@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { JsonStore } from "./store.js";
 import { QuestEngine } from "./quest-engine.js";
 import { formatQuestMessage } from "./quest-message.js";
+import { formatHelpMessage } from "./help-message.js";
 import { completeNdjsonChunk } from "./ndjson.js";
 import { parseGameSync, PendingCommandQueue } from "./game-sync.js";
 
@@ -168,10 +169,26 @@ function processQuestRequest(e) {
   });
 }
 
+function processHelpRequest(e) {
+  const steam = String(e?.steam || "");
+  const requestedAt = Number(e?.ts || 0);
+  const now = Math.floor(Date.now() / 1000);
+
+  if (!steam || !requestedAt) return;
+  if (requestedAt < now - 30 || requestedAt > now + 5) return;
+
+  appendCommand({
+    verb: "notify",
+    steam,
+    args: { message: formatHelpMessage() }
+  });
+}
+
 setInterval(() => {
   tail(eventsPath, (e) => {
     if (e.type === "snapshot") processSnapshot(e);
     if (e.type === "quest_request") processQuestRequest(e);
+    if (e.type === "help_request") processHelpRequest(e);
   });
 
   tail(nativeEventsPath, processNativeEvent);
@@ -281,6 +298,7 @@ const server = http.createServer(async (req, res) => {
         for (const snapshot of sync.snapshots) processSnapshot(snapshot);
         for (const event of sync.events) {
           if (event?.type === "quest_request") processQuestRequest(event);
+          if (event?.type === "help_request") processHelpRequest(event);
           if (event?.type === "damage_hit") processNativeEvent(event);
         }
       });
