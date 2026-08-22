@@ -1,10 +1,34 @@
-# IsleControl IPC protocol
+# IsleControl game/bridge protocol
 
-The game-process side and the external sidecar communicate through NDJSON files.
+The preferred transport is batched HTTP over loopback. A native UE4SS C++ mod
+uses WinHTTP on a worker thread, leaving all Unreal object access on the game
+thread. NDJSON files remain available as an automatic fallback if the native
+transport cannot load or configure.
+
 For the bridge's HTTP endpoints and complete game-command catalog, see
 [API.md](./API.md).
 
-## Snapshots
+## Batched HTTP transport
+
+Every snapshot interval, Lua submits all online player snapshots in one call to
+`POST /game/sync`. Chat and combat events use the same endpoint. The native
+worker retries requests without blocking the game thread and queues response
+commands for Lua to poll.
+
+The bridge keeps live snapshots and pending commands in memory. Only aggregated
+quest progress, token balances, and minimal last-snapshot state are persisted.
+Multiple quest changes in one HTTP batch produce one atomic state-file write.
+
+Commands are returned as NDJSON and are retained by the bridge until Lua sends
+their IDs in `acknowledgements`. Lua also deduplicates command IDs for one hour.
+
+With `gameTransport` set to `auto`, the bridge sends commands over HTTP after a
+recent game sync and otherwise uses `commands.ndjson`. This permits safe rollout
+and automatic fallback while the game server is restarting.
+
+## File fallback
+
+### Snapshots
 
 `events.ndjson`
 
@@ -32,7 +56,7 @@ For the bridge's HTTP endpoints and complete game-command catalog, see
 }
 ```
 
-## Commands
+### Commands
 
 `commands.ndjson`
 
@@ -46,10 +70,10 @@ For the bridge's HTTP endpoints and complete game-command catalog, see
 }
 ```
 
-## Player quest requests
+### Player quest requests
 
-When a player enters `/quests` in client chat, the game-process mod appends a
-request to `events.ndjson`:
+When file fallback is active and a player enters `/quests` in client chat, the
+game-process mod appends a request to `events.ndjson`:
 
 ```json
 {
@@ -64,7 +88,7 @@ all available quests, and queues a private `notify` command for that player.
 Requests older than 30 seconds are ignored so restarting the sidecar does not
 replay old chat responses.
 
-## Results
+### Results
 
 `results.ndjson`
 
@@ -79,7 +103,7 @@ replay old chat responses.
 }
 ```
 
-## Native hit observations
+### Native hit observations
 
 `native-events.ndjson`
 

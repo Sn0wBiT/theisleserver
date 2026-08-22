@@ -16,6 +16,9 @@ local RESULTS_PATH = SAVED_DIR .. "/results.ndjson"
 
 local config = {
     enabled = true,
+    transport = "file",
+    bridgeUrl = "http://127.0.0.1:31990/game/sync",
+    bridgeToken = "",
     snapshotIntervalMs = 5000,
     commandPollMs = 1000,
     presenceRefreshMs = 15000,
@@ -129,6 +132,15 @@ local function loadConfig()
     v = jsonReadBool(body, "enabled")
     if v ~= nil then config.enabled = v end
 
+    v = jsonReadString(body, "transport")
+    if v == "http" or v == "file" then config.transport = v end
+
+    v = jsonReadString(body, "bridgeUrl")
+    if v ~= nil and v ~= "" then config.bridgeUrl = v end
+
+    v = jsonReadString(body, "bridgeToken")
+    if v ~= nil then config.bridgeToken = v end
+
     v = jsonReadNumber(body, "snapshotIntervalMs")
     if v ~= nil and v >= 1000 then config.snapshotIntervalMs = math.floor(v) end
 
@@ -146,6 +158,73 @@ local function loadConfig()
         config.snapshotIntervalMs,
         config.commandPollMs,
         #config.adminSteamIds))
+end
+
+-- ---------------------------------------------------------------------------
+-- Game-to-bridge transport
+-- ---------------------------------------------------------------------------
+
+local activeTransport = "file"
+local pendingHttpAcknowledgements = {}
+local processedHttpCommands = {}
+
+local function configureTransport()
+    if config.transport ~= "http" then
+        activeTransport = "file"
+        log("file IPC transport active")
+        return
+    end
+
+    if type(IsleControlHttpConfigure) ~= "function"
+        or type(IsleControlHttpEnqueue) ~= "function"
+        or type(IsleControlHttpPoll) ~= "function" then
+        activeTransport = "file"
+        log("WinHTTP transport unavailable; file IPC fallback active")
+        return
+    end
+
+    local ok, configured = pcall(function()
+        return IsleControlHttpConfigure(config.bridgeUrl, config.bridgeToken)
+    end)
+
+    if ok and configured == true then
+        activeTransport = "http"
+        log("WinHTTP transport active: " .. config.bridgeUrl)
+    else
+        activeTransport = "file"
+        log("WinHTTP configuration failed; file IPC fallback active")
+    end
+end
+
+local function acknowledgementJson()
+    local values = {}
+    for id, _ in pairs(pendingHttpAcknowledgements) do
+        values[#values + 1] = '"' .. jsonEscape(id) .. '"'
+    end
+    table.sort(values)
+    return "[" .. table.concat(values, ",") .. "]"
+end
+
+local function enqueueHttpSync(snapshots, events)
+    if activeTransport ~= "http" then return false end
+
+    local body = string.format(
+        '{"snapshots":[%s],"events":[%s],"acknowledgements":%s}',
+        table.concat(snapshots or {}, ","),
+        table.concat(events or {}, ","),
+        acknowledgementJson()
+    )
+
+    local ok, queued = pcall(function() return IsleControlHttpEnqueue(body) end)
+    if not ok or queued ~= true then return false end
+
+    pendingHttpAcknowledgements = {}
+    return true
+end
+
+local function sendGameEvent(line)
+    if enqueueHttpSync({}, { line }) then return true end
+    return appendLine(EVENTS_PATH, line)
 end
 
 local function findGameMode()
@@ -386,12 +465,18 @@ local function snapshotOnce()
     if not config.enabled then return end
 
     local now = os.time()
+    local lines = {}
     for _, p in ipairs(enumerateOnlinePlayers()) do
         if p.pawn ~= nil then
             local ok, line = pcall(function() return snapshotLine(p, now) end)
-            if ok and line ~= nil then appendLine(EVENTS_PATH, line) end
+            if ok and line ~= nil then lines[#lines + 1] = line end
         end
     end
+
+    -- Send one request for the entire server. An empty batch is intentional:
+    -- it retrieves pending commands even when nobody currently has a live pawn.
+    if enqueueHttpSync(lines, {}) then return end
+    for _, line in ipairs(lines) do appendLine(EVENTS_PATH, line) end
 end
 
 -- ---------------------------------------------------------------------------
@@ -430,7 +515,7 @@ local function registerChatCommandHook()
                 end
 
                 presenceUpdate(steam)
-                appendLine(EVENTS_PATH, string.format(
+                sendGameEvent(string.format(
                     '{"type":"quest_request","ts":%d,"steam":"%s"}',
                     os.time(),
                     jsonEscape(steam)
@@ -711,6 +796,28 @@ end
 local function processCommands()
     if not config.enabled then return end
 
+    if activeTransport == "http" then
+        while true do
+            local ok, body = pcall(function() return IsleControlHttpPoll() end)
+            if not ok or body == nil or body == "" then break end
+
+            for line in tostring(body):gmatch("[^\r\n]+") do
+                local id = jsonReadString(line, "id") or ""
+                if id == "" or processedHttpCommands[id] == nil then
+                    processCommand(line)
+                    if id ~= "" then processedHttpCommands[id] = os.time() end
+                end
+                if id ~= "" then pendingHttpAcknowledgements[id] = true end
+            end
+        end
+
+        local cutoff = os.time() - 3600
+        for id, processedAt in pairs(processedHttpCommands) do
+            if processedAt < cutoff then processedHttpCommands[id] = nil end
+        end
+        return
+    end
+
     local f = io.open(COMMANDS_PATH, "rb")
     if f == nil then return end
     f:close()
@@ -759,6 +866,7 @@ end
 -- ---------------------------------------------------------------------------
 
 loadConfig()
+configureTransport()
 registerPresenceHook()
 registerChatCommandHook()
 registerDiagnosticDamageHook()

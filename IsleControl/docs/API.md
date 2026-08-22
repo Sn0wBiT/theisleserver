@@ -2,7 +2,8 @@
 
 The IsleControl bridge exposes an HTTP JSON API for inspecting live players,
 tracking and claiming quests, and queuing commands for the UE4SS game mod.
-The bridge and game mod communicate through the file protocol described in
+The bridge and game mod communicate through batched localhost HTTP, with the
+file protocol retained as an automatic fallback, as described in
 [PROTOCOL.md](./PROTOCOL.md).
 
 ## Connection
@@ -17,11 +18,12 @@ The host and port come from `bridge/config.json`. The bridge does not provide
 TLS, so keep it bound to localhost or place it behind a trusted HTTPS reverse
 proxy.
 
-All responses use `application/json; charset=utf-8`.
+Responses use `application/json; charset=utf-8`, except successful game sync
+responses, which use `application/x-ndjson; charset=utf-8`.
 
 ## Authentication
 
-Every endpoint except `GET /health` requires the token from the bridge's
+Every administrative endpoint except `GET /health` requires the token from the bridge's
 `apiToken` configuration value:
 
 ```http
@@ -53,6 +55,7 @@ STEAM_ID=76561198000000000
 | Method | Path | Authentication | Success |
 | --- | --- | --- | --- |
 | `GET` | `/health` | No | `200` |
+| `POST` | `/game/sync` | Loopback or game bearer token | `200` |
 | `GET` | `/players` | Bearer token | `200` |
 | `GET` | `/quests/{steam}` | Bearer token | `200` |
 | `POST` | `/quests/{steam}/claim/{questId}` | Bearer token | `200` |
@@ -67,6 +70,34 @@ Unknown routes return `404` after authentication:
   "error": "not-found"
 }
 ```
+
+## Game synchronization
+
+### `POST /game/sync`
+
+The native UE4SS WinHTTP transport sends one batch containing all current
+player snapshots, discrete game events, and command acknowledgements. This
+endpoint is accepted from loopback when `gameToken` is empty. If `gameToken`
+is configured, it requires that bearer token instead.
+
+```json
+{
+  "snapshots": [
+    {"steam":"76561198000000000","ts":1777000000,"growth":0.75}
+  ],
+  "events": [
+    {"type":"quest_request","steam":"76561198000000000","ts":1777000000}
+  ],
+  "acknowledgements": ["previous-command-id"]
+}
+```
+
+The response uses `application/x-ndjson`. Each line is a pending command. A
+command remains pending until its ID appears in a later `acknowledgements`
+array. An empty response means there are no commands.
+
+The request body is limited to 1 MiB, 500 snapshots, 1,000 events, and 1,000
+acknowledgements.
 
 ## Health
 
@@ -84,6 +115,9 @@ Response:
 {
   "ok": true,
   "players": 2,
+  "gameTransport": "auto",
+  "httpConnected": true,
+  "lastHttpSyncAt": 1787410000000,
   "eventsPath": "C:\\theisleserver\\TheIsle\\Binaries\\Win64\\ue4ss\\Mods\\IsleControl\\Saved\\events.ndjson",
   "nativeEventsPath": "C:\\theisleserver\\TheIsle\\Binaries\\Win64\\ue4ss\\Mods\\IsleControl\\Saved\\native-events.ndjson"
 }
@@ -93,6 +127,9 @@ Response:
 | --- | --- | --- |
 | `ok` | boolean | Always `true` when the bridge answers. |
 | `players` | integer | Number of Steam IDs with a snapshot in bridge memory. |
+| `gameTransport` | string | Configured command transport mode. |
+| `httpConnected` | boolean | Whether a game sync arrived in the last 15 seconds. |
+| `lastHttpSyncAt` | integer or null | Unix time in milliseconds of the latest HTTP game sync. |
 | `eventsPath` | string | Configured absolute snapshot-event file path. |
 | `nativeEventsPath` | string | Configured absolute native-event file path. |
 

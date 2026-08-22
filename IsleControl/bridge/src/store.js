@@ -4,6 +4,8 @@ import path from "node:path";
 export class JsonStore {
   constructor(file) {
     this.file = file;
+    this.batchDepth = 0;
+    this.dirty = false;
     this.data = {
       questProgress: {},
       tokenBalances: {},
@@ -26,9 +28,30 @@ export class JsonStore {
   }
 
   save() {
+    if (this.batchDepth > 0) {
+      this.dirty = true;
+      return;
+    }
+
+    this.write();
+  }
+
+  write() {
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     const tmp = this.file + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2));
     fs.renameSync(tmp, this.file);
+    this.dirty = false;
+  }
+
+  batch(callback) {
+    this.batchDepth += 1;
+
+    try {
+      return callback();
+    } finally {
+      this.batchDepth -= 1;
+      if (this.batchDepth === 0 && this.dirty) this.write();
+    }
   }
 }

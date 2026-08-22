@@ -7,6 +7,7 @@ import { JsonStore } from "./store.js";
 import { QuestEngine } from "./quest-engine.js";
 import { formatQuestMessage } from "./quest-message.js";
 import { completeNdjsonChunk } from "./ndjson.js";
+import { parseGameSync, PendingCommandQueue } from "./game-sync.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bridgeDir = path.resolve(here, "..");
@@ -15,7 +16,7 @@ function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-const configPath = path.join(bridgeDir, "config.json");
+const configPath = process.env.ISLECONTROL_CONFIG || path.join(bridgeDir, "config.json");
 if (!fs.existsSync(configPath)) {
   console.error("Missing bridge/config.json. Copy config.example.json first.");
   process.exit(1);
@@ -23,7 +24,7 @@ if (!fs.existsSync(configPath)) {
 
 const config = readJson(configPath);
 const quests = readJson(path.join(bridgeDir, "quests.json"));
-const store = new JsonStore(path.join(bridgeDir, "data", "state.json"));
+const store = new JsonStore(config.stateFile || path.join(bridgeDir, "data", "state.json"));
 const questEngine = new QuestEngine(quests, store);
 
 const eventsPath = path.join(config.modSavedDir, "events.ndjson");
@@ -37,6 +38,15 @@ const cursors = new Map();
 const livePlayers = new Map(); // steam -> latest snapshot
 const addrToSteam = new Map(); // pawn address -> steam
 const recentDamage = new Map(); // victim address -> { attackerAddr, ts }
+const pendingHttpCommands = new PendingCommandQueue();
+let lastHttpSyncAt = 0;
+
+// Persistent quest state already contains everything represented by old IPC
+// records. Begin existing append-only files at EOF so a bridge restart cannot
+// award progress twice. Files created after startup still begin at byte zero.
+for (const file of [eventsPath, nativeEventsPath]) {
+  if (fs.existsSync(file)) cursors.set(file, fs.statSync(file).size);
+}
 
 function tail(file, onLine) {
   if (!fs.existsSync(file)) return;
@@ -62,10 +72,18 @@ function tail(file, onLine) {
   cursors.set(file, cursor + chunk.bytesConsumed);
 
   for (const line of chunk.lines) {
+    let event;
     try {
-      onLine(JSON.parse(line));
+      event = JSON.parse(line);
     } catch {
       console.warn("[tail] ignored malformed line", file, line.slice(0, 120));
+      continue;
+    }
+
+    try {
+      onLine(event);
+    } catch (error) {
+      console.error("[tail] event handler failed", file, event?.type, error);
     }
   }
 }
@@ -160,16 +178,24 @@ setInterval(() => {
 }, Math.max(250, Number(config.pollMs || 1000)));
 
 function appendCommand(command) {
-  const line = JSON.stringify({
+  const queued = {
     id: command.id || crypto.randomUUID(),
     ts: Math.floor(Date.now() / 1000),
     verb: command.verb,
     steam: command.steam || "",
     args: command.args || {}
-  });
+  };
 
-  fs.appendFileSync(commandsPath, line + "\n");
-  return JSON.parse(line);
+  const httpActive = config.gameTransport === "http" || (
+    config.gameTransport === "auto" && Date.now() - lastHttpSyncAt < 30000
+  );
+
+  if (httpActive) {
+    return pendingHttpCommands.add(queued);
+  }
+
+  fs.appendFileSync(commandsPath, JSON.stringify(queued) + "\n");
+  return queued;
 }
 
 function authorized(req) {
@@ -177,11 +203,30 @@ function authorized(req) {
   return req.headers.authorization === `Bearer ${config.apiToken}`;
 }
 
+function gameAuthorized(req) {
+  if (config.gameToken) {
+    return req.headers.authorization === `Bearer ${config.gameToken}`;
+  }
+
+  const address = req.socket.remoteAddress || "";
+  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
 function send(res, status, value) {
   const body = JSON.stringify(value, null, 2);
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "content-length": Buffer.byteLength(body)
+  });
+  res.end(body);
+}
+
+function sendNdjson(res, status, values) {
+  const body = values.map((value) => JSON.stringify(value)).join("\n");
+  res.writeHead(status, {
+    "content-type": "application/x-ndjson; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
+    "cache-control": "no-store"
   });
   res.end(body);
 }
@@ -214,9 +259,36 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, {
       ok: true,
       players: livePlayers.size,
+      gameTransport: config.gameTransport || "file",
+      httpConnected: Date.now() - lastHttpSyncAt < 15000,
+      lastHttpSyncAt: lastHttpSyncAt || null,
       eventsPath,
       nativeEventsPath
     });
+  }
+
+  if (req.method === "POST" && url.pathname === "/game/sync") {
+    if (!gameAuthorized(req)) {
+      return send(res, 401, { ok: false, error: "unauthorized" });
+    }
+
+    try {
+      const sync = parseGameSync(await bodyJson(req));
+      lastHttpSyncAt = Date.now();
+      pendingHttpCommands.acknowledge(sync.acknowledgements);
+
+      store.batch(() => {
+        for (const snapshot of sync.snapshots) processSnapshot(snapshot);
+        for (const event of sync.events) {
+          if (event?.type === "quest_request") processQuestRequest(event);
+          if (event?.type === "damage_hit") processNativeEvent(event);
+        }
+      });
+
+      return sendNdjson(res, 200, pendingHttpCommands.list());
+    } catch (error) {
+      return send(res, 400, { ok: false, error: String(error.message || error) });
+    }
   }
 
   if (!authorized(req)) {
@@ -294,7 +366,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(Number(config.port || 31990), config.host || "127.0.0.1", () => {
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : Number(config.port || 31990);
   console.log(
-    `[IsleControl bridge] http://${config.host || "127.0.0.1"}:${config.port || 31990}`
+    `[IsleControl bridge] http://${config.host || "127.0.0.1"}:${port}`
   );
 });

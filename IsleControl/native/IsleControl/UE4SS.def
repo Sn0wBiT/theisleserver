@@ -1,0 +1,10 @@
+LIBRARY UE4SS.dll
+EXPORTS
+    ??0CppUserModBase@RC@@QEAA@XZ
+    ??1CppUserModBase@RC@@UEAA@XZ
+    ?get_string@Lua@LuaMadeSimple@RC@@QEBA?AV?$basic_string_view@DU?$char_traits@D@std@@@std@@H@Z
+    ?is_string@Lua@LuaMadeSimple@RC@@QEBA_NH@Z
+    ?register_function@Lua@LuaMadeSimple@RC@@QEBAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBQ6AHAEBV123@@Z@Z
+    ?set_bool@Lua@LuaMadeSimple@RC@@QEBAX_N@Z
+    ?set_nil@Lua@LuaMadeSimple@RC@@QEBAXXZ
+    ?set_string@Lua@LuaMadeSimple@RC@@QEBAXPEBD_K@Z
