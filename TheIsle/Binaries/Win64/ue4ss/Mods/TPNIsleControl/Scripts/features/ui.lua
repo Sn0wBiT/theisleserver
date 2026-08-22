@@ -9,6 +9,24 @@ local function reflectionName(value)
     return name
 end
 
+-- Exceptions raised by a Lua callback invoked from UE4SS reflection can escape
+-- the inner pcall and abort the enclosing ForEachFunction call.  Keep every
+-- callback non-throwing, especially when probing methods that vary by version.
+local function safeReflectionNumber(value, methodName)
+    local number
+    pcall(function()
+        local method = value[methodName]
+        if type(method) == "function" then number = tonumber(method(value)) end
+    end)
+    return number or 0
+end
+
+local function reflectionClassName(value)
+    local name = ""
+    pcall(function() name = Runtime.safeString(value:GetClass():GetFName()) end)
+    return name
+end
+
 local function isCandidate(name)
     name = (name or ""):lower()
     for _, token in ipairs({
@@ -38,19 +56,24 @@ function Ui.scan(controller, reason)
         local className = Runtime.safeString(current:GetFullName())
         local okFunctions, functionErr = pcall(function()
             current:ForEachFunction(function(fn)
-                local name = reflectionName(fn)
-                if not isCandidate(name) then return false end
-                functionCount = functionCount + 1
-                local flags = 0
-                pcall(function() flags = fn:GetFunctionFlags() end)
-                Runtime.appendLine(path, string.format("FUNCTION class=%s name=%s flags=0x%X",
-                    className, name, tonumber(flags) or 0))
                 pcall(function()
-                    fn:ForEachProperty(function(property)
-                        Runtime.appendLine(path, string.format("  PARAM name=%s type=%s offset=0x%X size=%d",
-                            reflectionName(property), Runtime.safeString(property:GetClass():GetFName()),
-                            tonumber(property:GetOffset_Internal()) or 0, tonumber(property:GetSize()) or 0))
-                        return false
+                    local name = reflectionName(fn)
+                    if not isCandidate(name) then return end
+                    functionCount = functionCount + 1
+                    local flags = safeReflectionNumber(fn, "GetFunctionFlags")
+                    Runtime.appendLine(path, string.format("FUNCTION class=%s name=%s flags=0x%X",
+                        className, name, flags))
+                    pcall(function()
+                        fn:ForEachProperty(function(property)
+                            pcall(function()
+                                Runtime.appendLine(path,
+                                    string.format("  PARAM name=%s type=%s offset=0x%X size=%d",
+                                        reflectionName(property), reflectionClassName(property),
+                                        safeReflectionNumber(property, "GetOffset_Internal"),
+                                        safeReflectionNumber(property, "GetSize")))
+                            end)
+                            return false
+                        end)
                     end)
                 end)
                 return false
