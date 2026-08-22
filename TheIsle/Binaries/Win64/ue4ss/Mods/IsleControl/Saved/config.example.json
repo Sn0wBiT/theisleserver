@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "snapshotIntervalMs": 5000,
+  "commandPollMs": 1000,
+  "presenceRefreshMs": 15000,
+  "presenceExpirySec": 180,
+  "adminSteamIds": [
+    "76561198000000000"
+  ]
+}
