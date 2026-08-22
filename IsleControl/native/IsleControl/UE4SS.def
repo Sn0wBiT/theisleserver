@@ -8,3 +8,13 @@ EXPORTS
     ?set_bool@Lua@LuaMadeSimple@RC@@QEBAX_N@Z
     ?set_nil@Lua@LuaMadeSimple@RC@@QEBAXXZ
     ?set_string@Lua@LuaMadeSimple@RC@@QEBAXPEBD_K@Z
+    ??0FName@Unreal@RC@@QEAA@PEB_WW4EFindName@12@PEAX@Z
+    ??0FString@Unreal@RC@@QEAA@PEB_W@Z
+    ??1FString@Unreal@RC@@QEAA@XZ
+    ??0FText@Unreal@RC@@QEAA@$$QEBVFString@12@@Z
+    ?FindProperty@UStruct@Unreal@RC@@QEAAPEAVFProperty@23@VFName@23@@Z
+    ?GetFunctionByNameInChain@UObject@Unreal@RC@@QEAAPEAVUFunction@23@PEB_W@Z
+    ?GetOffset_Internal@FProperty@Unreal@RC@@QEAAAEAHXZ
+    ?GetParmsSize@UFunction@Unreal@RC@@QEAAAEAGXZ
+    ?GetSize@FProperty@Unreal@RC@@QEAAHXZ
+    ?ProcessEvent@UObject@Unreal@RC@@QEAAXPEAVUFunction@23@PEAX@Z

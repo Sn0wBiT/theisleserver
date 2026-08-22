@@ -3,7 +3,8 @@ cmake_minimum_required(VERSION 3.22)
 set(TARGET IsleControl)
 project(${TARGET})
 
-add_library(${TARGET} SHARED src/dllmain.cpp)
+add_library(${TARGET} SHARED src/tpndino.cpp)
+set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME TPNIsle)
 target_compile_features(${TARGET} PRIVATE cxx_std_23)
 target_include_directories(${TARGET} PRIVATE include)
 

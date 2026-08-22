@@ -86,7 +86,9 @@ to `events.ndjson`. `/quests` produces:
 `/help` produces the same shape with `"type":"help_request"`.
 
 The sidecar reads the player's current quest windows and token balance, formats
-all available quests, and queues a private `notify` command for that player.
+all available quests, and queues a `notify` command with
+`"delivery":"private_chat"` for that player. Older Lua builds safely treat it
+as a notification; the current native-enabled build displays it in private chat.
 Help requests similarly return the current player command list.
 Requests older than 30 seconds are ignored so restarting the sidecar does not
 replay old chat responses.

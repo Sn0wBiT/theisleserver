@@ -164,7 +164,8 @@ function processQuestRequest(e) {
     verb: "notify",
     steam,
     args: {
-      message: formatQuestMessage(playerQuests, tokenBalance)
+      message: formatQuestMessage(playerQuests, tokenBalance),
+      delivery: "private_chat"
     }
   });
 }
@@ -180,7 +181,7 @@ function processHelpRequest(e) {
   appendCommand({
     verb: "notify",
     steam,
-    args: { message: formatHelpMessage() }
+    args: { message: formatHelpMessage(), delivery: "private_chat" }
   });
 }
 

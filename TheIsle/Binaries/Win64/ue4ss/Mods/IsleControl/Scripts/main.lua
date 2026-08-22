@@ -564,6 +564,32 @@ local function notify(steam, message)
     return true, "notification queued"
 end
 
+local function privateChat(steam, message)
+    local ctrl = controllerForSteam(steam)
+    if ctrl == nil then return false, "player offline" end
+
+    if type(IsleControlSendPrivateChat) == "function" then
+        local address
+        pcall(function() address = ctrl:GetAddress() end)
+        if type(address) == "number" and address ~= 0 then
+            local okChat, sent = pcall(function()
+                return IsleControlSendPrivateChat(
+                    string.format("0x%X", address),
+                    "IsleControl",
+                    "0",
+                    message
+                )
+            end)
+            if okChat and sent == true then
+                return true, "private chat queued"
+            end
+        end
+    end
+
+    log("private chat unavailable; using notification fallback")
+    return notify(steam, message)
+end
+
 -- ---------------------------------------------------------------------------
 -- Admin actions
 -- ---------------------------------------------------------------------------
@@ -737,7 +763,16 @@ end
 local function actionNotify(steam, args)
     local message = jsonReadString(args, "message")
     if message == nil or message == "" then return false, "missing message" end
+    if jsonReadString(args, "delivery") == "private_chat" then
+        return privateChat(steam, message)
+    end
     return notify(steam, message)
+end
+
+local function actionPrivateChat(steam, args)
+    local message = jsonReadString(args, "message")
+    if message == nil or message == "" then return false, "missing message" end
+    return privateChat(steam, message)
 end
 
 local handlers = {
@@ -756,7 +791,8 @@ local handlers = {
     unprime = function(steam, _args)
         return actionPrime(steam, '{"value":false}')
     end,
-    notify = actionNotify
+    notify = actionNotify,
+    private_chat = actionPrivateChat
 }
 
 local function emitResult(id, verb, steam, ok, msg)

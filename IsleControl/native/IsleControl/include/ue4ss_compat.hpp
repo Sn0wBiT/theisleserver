@@ -5,6 +5,7 @@
 // call CppUserModBase and register three Lua functions.
 
 #include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -34,6 +35,74 @@ namespace RC
             __declspec(dllimport) void set_nil() const;
             __declspec(dllimport) void set_bool(bool) const;
         };
+    }
+
+    namespace Unreal
+    {
+        enum EFindName : std::int32_t
+        {
+            FNAME_Find = 0
+        };
+
+        class FName
+        {
+          private:
+            std::uint64_t value{};
+
+          public:
+            __declspec(dllimport) FName(const wchar_t*, EFindName, void* = nullptr);
+        };
+
+        class FString
+        {
+          private:
+            wchar_t* data{};
+            std::int32_t count{};
+            std::int32_t capacity{};
+
+          public:
+            __declspec(dllimport) explicit FString(const wchar_t*);
+            __declspec(dllimport) ~FString();
+        };
+
+        class FText
+        {
+          private:
+            std::byte value[16]{};
+
+          public:
+            __declspec(dllimport) explicit FText(const FString&&);
+        };
+
+        class FProperty
+        {
+          public:
+            __declspec(dllimport) auto GetOffset_Internal() -> std::int32_t&;
+            __declspec(dllimport) auto GetSize() -> std::int32_t;
+        };
+
+        class UStruct
+        {
+          public:
+            __declspec(dllimport) auto FindProperty(FName) -> FProperty*;
+        };
+
+        class UFunction : public UStruct
+        {
+          public:
+            __declspec(dllimport) auto GetParmsSize() -> std::uint16_t&;
+        };
+
+        class UObject
+        {
+          public:
+            __declspec(dllimport) auto GetFunctionByNameInChain(const wchar_t*) -> UFunction*;
+            __declspec(dllimport) void ProcessEvent(UFunction*, void*);
+        };
+
+        static_assert(sizeof(FName) == 8);
+        static_assert(sizeof(FString) == 16);
+        static_assert(sizeof(FText) == 16);
     }
 
     class CppUserModBase

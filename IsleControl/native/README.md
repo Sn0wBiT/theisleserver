@@ -1,11 +1,12 @@
 # IsleControl native WinHTTP transport
 
-This C++ mod adds three non-blocking functions to the existing `IsleControl`
+This C++ mod adds four native functions to the existing `IsleControl`
 Lua mod:
 
 - `IsleControlHttpConfigure(url, token)`
 - `IsleControlHttpEnqueue(json)`
 - `IsleControlHttpPoll()`
+- `IsleControlSendPrivateChat(controllerAddress, sender, senderSteamId, message)`
 
 WinHTTP runs on a worker thread. Unreal object access remains in Lua on the game
 thread. The native transport accepts only loopback bridge URLs.
@@ -33,7 +34,7 @@ import library from the exports of the installed ABI. This avoids UE4SS's
 private `UEPseudo` source dependency. Re-check the declarations and exported
 symbols before building against any other UE4SS commit.
 
-Copy the resulting `IsleControl.dll` to:
+Copy the resulting `TPNIsle.dll` to:
 
 ```text
 TheIsle\Binaries\Win64\ue4ss\Mods\IsleControl\dlls\main.dll
