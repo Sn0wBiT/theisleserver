@@ -339,6 +339,7 @@ All current game-side commands target the player identified by `steam`.
 | `unprime` | `{}` | Clears prime eligibility. |
 | `notify` | `{ "message": string }` | Shows a notification to an online player. |
 | `private_chat` | `{ "message": string }` | Sends a private line to an online player's chat. |
+| `human` | `{}` | Test command: swaps the player's live dinosaur to the playable Generation 2 human. |
 
 For `mutations`, provide at least one of `slot1` through `slot4`. The aliases
 `Slot1` through `Slot4` and `MutationSlot1` through `MutationSlot4` are also
@@ -357,6 +358,7 @@ Examples:
 { "verb": "unprime",   "steam": "76561198000000000", "args": {} }
 { "verb": "notify",    "steam": "76561198000000000", "args": { "message": "Welcome!" } }
 { "verb": "private_chat", "steam": "76561198000000000", "args": { "message": "Your quests..." } }
+{ "verb": "human",       "steam": "76561198000000000", "args": {} }
 ```
 
 Common game-side failures include `missing steam`, `player has no live dino`,

@@ -184,11 +184,23 @@ function processHelpRequest(e) {
   });
 }
 
+function processHumanRequest(e) {
+  const steam = String(e?.steam || "");
+  const requestedAt = Number(e?.ts || 0);
+  const now = Math.floor(Date.now() / 1000);
+
+  if (!steam || !requestedAt) return;
+  if (requestedAt < now - 30 || requestedAt > now + 5) return;
+
+  appendCommand({ verb: "human", steam, args: {} });
+}
+
 setInterval(() => {
   tail(eventsPath, (e) => {
     if (e.type === "snapshot") processSnapshot(e);
     if (e.type === "quest_request") processQuestRequest(e);
     if (e.type === "help_request") processHelpRequest(e);
+    if (e.type === "human_request") processHumanRequest(e);
   });
 
   tail(nativeEventsPath, processNativeEvent);
@@ -299,6 +311,7 @@ const server = http.createServer(async (req, res) => {
         for (const event of sync.events) {
           if (event?.type === "quest_request") processQuestRequest(event);
           if (event?.type === "help_request") processHelpRequest(event);
+          if (event?.type === "human_request") processHumanRequest(event);
           if (event?.type === "damage_hit") processNativeEvent(event);
         }
       });
