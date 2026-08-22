@@ -8,4 +8,9 @@ docs/private
 /TPNIsleControl/native/build/
 TPNIsleControl\bridge\data\state.json
 # Includes
-!TheIsle/Binaries/Win64/ue4ss
+!TheIsle/Binaries/
+TheIsle/Binaries/*
+!TheIsle/Binaries/Win64/
+TheIsle/Binaries/Win64/*
+!TheIsle/Binaries/Win64/ue4ss/
+!TheIsle/Binaries/Win64/ue4ss/**
