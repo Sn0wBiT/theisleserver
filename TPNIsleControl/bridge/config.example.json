@@ -1,0 +1,10 @@
+{
+  "host": "127.0.0.1",
+  "port": 31990,
+  "apiToken": "CHANGE_ME",
+  "gameToken": "",
+  "gameTransport": "auto",
+  "modSavedDir": "C:\\theisleserver\\TheIsle\\Binaries\\Win64\\ue4ss\\Mods\\TPNIsleControl\\Saved",
+  "pollMs": 1000,
+  "combatWindowSec": 20
+}

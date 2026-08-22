@@ -1,0 +1,28 @@
+{
+  "questProgress": {
+    "76561198041372743:daily_growth_75:2026-08-22": {
+      "progress": 0.36111328005791,
+      "completed": false,
+      "claimed": false
+    },
+    "76561198041372743:daily_play_30:2026-08-22": {
+      "progress": 7134,
+      "completed": true,
+      "claimed": false
+    },
+    "76561198041372743:monthly_play_10h:2026-08": {
+      "progress": 7134,
+      "completed": false,
+      "claimed": false
+    }
+  },
+  "tokenBalances": {},
+  "lastSnapshots": {
+    "76561198041372743": {
+      "ts": 1787417279,
+      "hp": 25.093221664429,
+      "addr": "0x1AEBCA64930",
+      "growth": 0.35863867402077
+    }
+  }
+}
