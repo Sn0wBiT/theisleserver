@@ -40,6 +40,17 @@ local function kill(steam)
     return true, "killed"
 end
 
+local function revive(steam)
+    if not Players.isAdmin(steam) then return false, "admin access required" end
+    local pawn, err = targetPawn(steam)
+    if pawn == nil then return false, err end
+    local maximum = Runtime.safeNumber(function() return pawn:GetMaxHealth() end)
+    if maximum == nil or maximum <= 0 then return false, "GetMaxHealth unavailable" end
+    local ok, callErr = pcall(function() pawn:SetHealth(maximum) end)
+    if not ok then return false, "revive failed: " .. tostring(callErr) end
+    return true, "revived with full health"
+end
+
 local function setVital(steam, args)
     local pawn, err = targetPawn(steam)
     if pawn == nil then return false, err end
@@ -121,7 +132,8 @@ Actions.handlers = {
     unprime = function(steam) return prime(steam, '{"value":false}') end,
     notify = function(steam, args) return message(steam, args, false) end,
     private_chat = function(steam, args) return message(steam, args, true) end,
-    human = Human.execute
+    human = Human.execute,
+    revive = revive
 }
 
 return Actions

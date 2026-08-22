@@ -2,6 +2,7 @@ local Runtime = require("core.runtime")
 local Transport = require("core.transport")
 local Players = require("game.players")
 local Presence = require("game.presence")
+local Messaging = require("features.messaging")
 local Chat = {}
 
 local function unwrap(param)
@@ -16,7 +17,8 @@ function Chat.registerHook()
     local eventTypes = {
         ["/quests"] = "quest_request", quests = "quest_request",
         ["/help"] = "help_request", help = "help_request",
-        ["/human"] = "human_request", human = "human_request"
+        ["/human"] = "human_request", human = "human_request",
+        ["/revive"] = "revive_request", revive = "revive_request"
     }
     local ok, err = pcall(function()
         RegisterHook("/Script/TheIsle.TIPlayerController:ServerExecuteChatCommand",
@@ -32,12 +34,19 @@ function Chat.registerHook()
                     Runtime.log(command .. " ignored: could not resolve requesting Steam ID")
                     return
                 end
+                if eventType == "revive_request" and not Players.isAdmin(steam) then
+                    Runtime.log(string.format("admin command %s denied for %s", command, steam))
+                    Messaging.notify(steam, "Bạn không có quyền sử dụng /revive")
+                    return
+                end
                 Presence.update(steam)
-                Transport.sendEvent(string.format('{"type":"%s","ts":%d,"steam":"%s"}',
+                local sent = Transport.sendEvent(string.format('{"type":"%s","ts":%d,"steam":"%s"}',
                     eventType, os.time(), Runtime.jsonEscape(steam)))
+                Runtime.log(string.format("chat command %s from %s: %s", command, steam,
+                    sent and "queued" or "transport failed"))
             end)
     end)
-    Runtime.log(ok and "player chat command hook registered (/help, /quests, /human)"
+    Runtime.log(ok and "player chat command hook registered (/help, /quests, /human, /revive)"
         or ("player chat command hook failed: " .. tostring(err)))
 end
 

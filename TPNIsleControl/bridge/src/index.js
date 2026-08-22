@@ -161,7 +161,7 @@ function processQuestRequest(e) {
   const playerQuests = questEngine.getPlayerState(steam);
 
   appendCommand({
-    verb: "private_chat",
+    verb: "notify",
     steam,
     args: {
       message: formatQuestMessage(playerQuests, tokenBalance)
@@ -178,7 +178,7 @@ function processHelpRequest(e) {
   if (requestedAt < now - 30 || requestedAt > now + 5) return;
 
   appendCommand({
-    verb: "private_chat",
+    verb: "notify",
     steam,
     args: { message: formatHelpMessage() }
   });
@@ -195,12 +195,24 @@ function processHumanRequest(e) {
   appendCommand({ verb: "human", steam, args: {} });
 }
 
+function processReviveRequest(e) {
+  const steam = String(e?.steam || "");
+  const requestedAt = Number(e?.ts || 0);
+  const now = Math.floor(Date.now() / 1000);
+
+  if (!steam || !requestedAt) return;
+  if (requestedAt < now - 30 || requestedAt > now + 5) return;
+
+  appendCommand({ verb: "revive", steam, args: {} });
+}
+
 setInterval(() => {
   tail(eventsPath, (e) => {
     if (e.type === "snapshot") processSnapshot(e);
     if (e.type === "quest_request") processQuestRequest(e);
     if (e.type === "help_request") processHelpRequest(e);
     if (e.type === "human_request") processHumanRequest(e);
+    if (e.type === "revive_request") processReviveRequest(e);
   });
 
   tail(nativeEventsPath, processNativeEvent);
@@ -312,6 +324,7 @@ const server = http.createServer(async (req, res) => {
           if (event?.type === "quest_request") processQuestRequest(event);
           if (event?.type === "help_request") processHelpRequest(event);
           if (event?.type === "human_request") processHumanRequest(event);
+          if (event?.type === "revive_request") processReviveRequest(event);
           if (event?.type === "damage_hit") processNativeEvent(event);
         }
       });

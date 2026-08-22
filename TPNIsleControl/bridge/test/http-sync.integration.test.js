@@ -66,7 +66,7 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
 
   assert.equal(response.status, 200);
   const command = JSON.parse(await response.text());
-  assert.equal(command.verb, "private_chat");
+  assert.equal(command.verb, "notify");
   assert.equal(command.args.delivery, undefined);
   assert.equal(command.steam, "76561198000000000");
   assert.match(command.args.message, /Daily: Play for 30 minutes/);
@@ -88,11 +88,12 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   });
   assert.equal(helpResponse.status, 200);
   const helpCommand = JSON.parse(await helpResponse.text());
-  assert.equal(helpCommand.verb, "private_chat");
+  assert.equal(helpCommand.verb, "notify");
   assert.equal(helpCommand.args.delivery, undefined);
   assert.match(helpCommand.args.message, /\/help\s+-/);
   assert.match(helpCommand.args.message, /\/quests\s+-/);
   assert.match(helpCommand.args.message, /\/human\s+-/);
+  assert.match(helpCommand.args.message, /\/revive\s+-/);
 
   const humanResponse = await fetch(`${url}/game/sync`, {
     method: "POST",
@@ -107,4 +108,18 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   assert.equal(humanCommand.verb, "human");
   assert.equal(humanCommand.steam, "76561198000000000");
   assert.deepEqual(humanCommand.args, {});
+
+  const reviveResponse = await fetch(`${url}/game/sync`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      events: [{ type: "revive_request", steam: "76561198000000000", ts: now }],
+      acknowledgements: [humanCommand.id]
+    })
+  });
+  assert.equal(reviveResponse.status, 200);
+  const reviveCommand = JSON.parse(await reviveResponse.text());
+  assert.equal(reviveCommand.verb, "revive");
+  assert.equal(reviveCommand.steam, "76561198000000000");
+  assert.deepEqual(reviveCommand.args, {});
 });

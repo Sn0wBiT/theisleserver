@@ -17,15 +17,18 @@ function Processor.processLine(line)
     local steam = Runtime.jsonReadString(line, "steam") or ""
     local args = Runtime.jsonReadObject(line, "args")
     if verb == "" then emitResult(id, verb, steam, false, "missing verb"); return end
+    Runtime.log(string.format("processing command %s for %s", verb, steam))
     local handler = Actions.handlers[verb]
     if handler == nil then emitResult(id, verb, steam, false, "unknown verb"); return end
     local ok, success, message = pcall(function() return handler(steam, args) end)
     if not ok then emitResult(id, verb, steam, false, "handler exception: " .. tostring(success)); return end
     if verb == "human" then
         pcall(function()
-            Messaging.privateChat(steam, "Human test: " .. tostring(message or (success and "done" or "failed")))
+            Messaging.notify(steam, "Human test: " .. tostring(message or (success and "done" or "failed")))
         end)
     end
+    Runtime.log(string.format("command %s for %s: %s (%s)", verb, steam,
+        success == true and "ok" or "failed", tostring(message or "")))
     emitResult(id, verb, steam, success == true, message or "")
 end
 

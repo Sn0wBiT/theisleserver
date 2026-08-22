@@ -12,7 +12,7 @@ function Players.findGameMode()
     for _, name in ipairs(GAME_MODE_CLASSES) do
         local gameMode
         pcall(function() gameMode = FindFirstOf(name) end)
-        if gameMode ~= nil then return gameMode end
+        if Players.liveAddress(gameMode) ~= nil then return gameMode end
     end
     return nil
 end
@@ -38,7 +38,7 @@ function Players.normalizeSteamId(value)
 end
 
 function Players.getControllerSteamId(controller)
-    if controller == nil then return "" end
+    if Players.liveAddress(controller) == nil then return "" end
     local steamId
     pcall(function() steamId = controller:GetSteamId() end)
     local normalized = Players.normalizeSteamId(steamId)
@@ -53,6 +53,7 @@ function Players.controllerForSteam(steam)
     if gameMode == nil then return nil end
     local controller
     pcall(function() controller = gameMode:GetControllerBySteamId(steam) end)
+    if Players.liveAddress(controller) == nil then return nil end
     return controller
 end
 

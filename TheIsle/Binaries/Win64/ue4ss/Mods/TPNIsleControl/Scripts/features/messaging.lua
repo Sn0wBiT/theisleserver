@@ -11,15 +11,20 @@ end
 
 function Messaging.notify(steam, message)
     local controller = Players.controllerForSteam(steam)
-    if controller == nil then return false, "player offline" end
+    if Players.liveAddress(controller) == nil then return false, "player offline" end
     local ok, err = pcall(function() controller:ClientShowNotification(makeText(message)) end)
-    if not ok then return false, "notification failed: " .. tostring(err) end
-    return true, "notification queued"
+    -- ClientShowNotification can return successfully on a dedicated server yet
+    -- render nothing on the remote client. Also send through the client chat RPC.
+    local chatOk, chatMessage = Messaging.privateChat(steam, message)
+    if ok and chatOk then return true, "notification and private chat queued" end
+    if ok then return true, "notification queued; " .. tostring(chatMessage) end
+    if chatOk then return true, "private chat fallback queued" end
+    return false, "notification failed: " .. tostring(err) .. "; " .. tostring(chatMessage)
 end
 
 function Messaging.privateChat(steam, message)
     local controller = Players.controllerForSteam(steam)
-    if controller == nil then return false, "player offline" end
+    if Players.liveAddress(controller) == nil then return false, "player offline" end
     if type(TPNIsleControlSendPrivateChat) == "function" then
         local address = Players.liveAddress(controller)
         if address ~= nil then

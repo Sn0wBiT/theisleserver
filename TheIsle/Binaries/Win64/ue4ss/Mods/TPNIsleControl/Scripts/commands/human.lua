@@ -29,7 +29,7 @@ function Human.execute(steam, _args)
     if gameMode == nil then return false, "game mode unavailable" end
     local controller
     pcall(function() controller = gameMode:GetControllerBySteamId(steam) end)
-    if controller == nil then return false, "player offline" end
+    if Players.liveAddress(controller) == nil then return false, "player offline" end
 
     local oldPawn = Players.livePawnFromController(controller)
     if Players.liveAddress(oldPawn) == nil then return false, "player has no live dino" end

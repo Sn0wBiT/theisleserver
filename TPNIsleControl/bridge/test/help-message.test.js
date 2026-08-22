@@ -7,5 +7,5 @@ test("formats every player chat command", () => {
   for (const { name, description } of PLAYER_COMMANDS) {
     assert.match(message, new RegExp(`${name.replace("/", "\\/")} - ${description}`));
   }
-  assert.deepEqual(PLAYER_COMMANDS.map(({ name }) => name), ["/help", "/quests", "/human"]);
+  assert.deepEqual(PLAYER_COMMANDS.map(({ name }) => name), ["/help", "/quests", "/human", "/revive"]);
 });
