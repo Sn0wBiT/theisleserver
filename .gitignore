@@ -5,7 +5,7 @@ node_modules
 TheIsle/*
 *.log
 docs/private
-/IsleControl/native/build/
-IsleControl\bridge\data\state.json
+/TPNIsleControl/native/build/
+TPNIsleControl\bridge\data\state.json
 # Includes
 !TheIsle/Binaries/Win64/ue4ss

@@ -161,11 +161,10 @@ function processQuestRequest(e) {
   const playerQuests = questEngine.getPlayerState(steam);
 
   appendCommand({
-    verb: "notify",
+    verb: "private_chat",
     steam,
     args: {
-      message: formatQuestMessage(playerQuests, tokenBalance),
-      delivery: "private_chat"
+      message: formatQuestMessage(playerQuests, tokenBalance)
     }
   });
 }
@@ -179,9 +178,9 @@ function processHelpRequest(e) {
   if (requestedAt < now - 30 || requestedAt > now + 5) return;
 
   appendCommand({
-    verb: "notify",
+    verb: "private_chat",
     steam,
-    args: { message: formatHelpMessage(), delivery: "private_chat" }
+    args: { message: formatHelpMessage() }
   });
 }
 

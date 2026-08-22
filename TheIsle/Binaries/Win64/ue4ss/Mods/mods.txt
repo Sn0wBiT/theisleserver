@@ -12,4 +12,4 @@ BPModLoaderMod : 1
 ; Built-in keybinds, do not move up!
 Keybinds : 1
 
-IsleControl : 1
+TPNIsleControl : 1

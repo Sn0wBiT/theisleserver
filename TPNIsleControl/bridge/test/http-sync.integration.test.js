@@ -66,8 +66,8 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
 
   assert.equal(response.status, 200);
   const command = JSON.parse(await response.text());
-  assert.equal(command.verb, "notify");
-  assert.equal(command.args.delivery, "private_chat");
+  assert.equal(command.verb, "private_chat");
+  assert.equal(command.args.delivery, undefined);
   assert.equal(command.steam, "76561198000000000");
   assert.match(command.args.message, /Daily: Play for 30 minutes/);
 
@@ -88,8 +88,8 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   });
   assert.equal(helpResponse.status, 200);
   const helpCommand = JSON.parse(await helpResponse.text());
-  assert.equal(helpCommand.verb, "notify");
-  assert.equal(helpCommand.args.delivery, "private_chat");
+  assert.equal(helpCommand.verb, "private_chat");
+  assert.equal(helpCommand.args.delivery, undefined);
   assert.match(helpCommand.args.message, /\/help\s+-/);
   assert.match(helpCommand.args.message, /\/quests\s+-/);
 });

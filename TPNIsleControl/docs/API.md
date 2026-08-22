@@ -338,7 +338,7 @@ All current game-side commands target the player identified by `steam`.
 | `prime` | `{ "value"?: boolean }` | Sets prime eligibility; `value` defaults to `true`. |
 | `unprime` | `{}` | Clears prime eligibility. |
 | `notify` | `{ "message": string }` | Shows a notification to an online player. |
-| `private_chat` | `{ "message": string }` | Sends a private line to an online player's chat, with notification fallback. |
+| `private_chat` | `{ "message": string }` | Sends a private line to an online player's chat. |
 
 For `mutations`, provide at least one of `slot1` through `slot4`. The aliases
 `Slot1` through `Slot4` and `MutationSlot1` through `MutationSlot4` are also
