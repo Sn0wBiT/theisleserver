@@ -4,5 +4,6 @@ Engine/*
 node_modules
 TheIsle/*
 *.log
+docs/private
 # Includes
 !TheIsle/Binaries/Win64/ue4ss
