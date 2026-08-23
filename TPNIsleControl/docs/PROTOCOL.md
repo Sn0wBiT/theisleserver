@@ -83,7 +83,9 @@ to `events.ndjson`. `/quests` produces:
 }
 ```
 
-`/help` produces the same shape with `"type":"help_request"`.
+`/help` produces the same shape with `"type":"help_request"`. To start a
+quest, a player uses `/accept <quest-id>`; it produces a `quest_accept` event
+with a `questId` field. The bridge only advances accepted quests.
 
 The sidecar reads the player's current quest windows and token balance, formats
 all available quests, and queues a `notify` command for that player.
@@ -122,3 +124,10 @@ replay old chat responses.
 The sidecar correlates addresses from the native hit stream with the `addr` value in recent player snapshots.
 
 A victim health transition `> 0` to `<= 0` within `combatWindowSec` of the last direct hit is treated as a player kill by the last hitter.
+
+`TPNIsleControl` also hooks `TICharacterBase:ApplyDamage`. Its post-hook emits
+an `ai_dinosaur_death` observation when the damaged character reaches zero
+health. The bridge ignores player addresses, attributes the remaining death to
+the latest player hit, and increments accepted `ai_dinosaur_kills` quests.
+Only species listed in `bridge/ai-dinosaurs.json` are eligible; each entry is
+matched against the target's Unreal class name.

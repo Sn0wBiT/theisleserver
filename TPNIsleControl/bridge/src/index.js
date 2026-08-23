@@ -25,6 +25,8 @@ if (!fs.existsSync(configPath)) {
 
 const config = readJson(configPath);
 const quests = readJson(path.join(bridgeDir, "quests.json"));
+const aiDinosaurSpecies = new Set(readJson(path.join(bridgeDir, "ai-dinosaurs.json"))
+  .map((species) => String(species).toLowerCase()));
 const store = new JsonStore(config.stateFile || path.join(bridgeDir, "data", "state.json"));
 const questEngine = new QuestEngine(quests, store);
 
@@ -39,6 +41,7 @@ const cursors = new Map();
 const livePlayers = new Map(); // steam -> latest snapshot
 const addrToSteam = new Map(); // pawn address -> steam
 const recentDamage = new Map(); // victim address -> { attackerAddr, ts }
+const recentAiDeaths = new Map(); // AI address -> death timestamp
 const pendingHttpCommands = new PendingCommandQueue();
 let lastHttpSyncAt = 0;
 
@@ -129,6 +132,25 @@ function processSnapshot(s) {
 }
 
 function processNativeEvent(e) {
+  if (e?.type === "ai_dinosaur_death") {
+    const targetAddr = String(e.target_addr || "").toLowerCase();
+    const targetSpecies = String(e.target_species || "").toLowerCase();
+    const ts = Number(e.ts || 0);
+    const approvedSpecies = [...aiDinosaurSpecies].some((species) => targetSpecies.includes(species));
+    if (!targetAddr || !ts || !approvedSpecies || addrToSteam.has(targetAddr)) return;
+    if ((recentAiDeaths.get(targetAddr) || 0) >= ts - 60) return;
+
+    const hit = recentDamage.get(targetAddr);
+    if (!hit || ts - hit.ts > Number(config.combatWindowSec || 20)) return;
+    const killerSteam = addrToSteam.get(hit.attackerAddr);
+    if (!killerSteam) return;
+
+    recentAiDeaths.set(targetAddr, ts);
+    questEngine.onAiDinosaurKill(killerSteam, targetSpecies);
+    console.log(`[ai-kill] ${killerSteam} -> ${targetAddr}`);
+    return;
+  }
+
   if (e?.type !== "damage_hit") return;
 
   const attackerAddr = String(e.attacker_addr || "").toLowerCase();
@@ -143,6 +165,9 @@ function processNativeEvent(e) {
   const cutoff = Math.floor(Date.now() / 1000) - 60;
   for (const [key, value] of recentDamage) {
     if (value.ts < cutoff) recentDamage.delete(key);
+  }
+  for (const [key, deathTs] of recentAiDeaths) {
+    if (deathTs < cutoff) recentAiDeaths.delete(key);
   }
 }
 
@@ -167,6 +192,23 @@ function processQuestRequest(e) {
       message: formatQuestMessage(playerQuests, tokenBalance)
     }
   });
+}
+
+function processQuestAccept(e) {
+  const steam = String(e?.steam || "");
+  const questId = String(e?.questId || "");
+  const requestedAt = Number(e?.ts || 0);
+  const now = Math.floor(Date.now() / 1000);
+  if (!steam || !questId || !requestedAt) return;
+  if (requestedAt < now - 30 || requestedAt > now + 5) return;
+
+  const result = questEngine.accept(steam, questId);
+  const message = result.ok
+    ? `Đã nhận nhiệm vụ: ${questId}. Tiến độ hiện bắt đầu được theo dõi.`
+    : result.error === "already-accepted"
+      ? `Nhiệm vụ ${questId} đã được nhận.`
+      : `Không thể nhận nhiệm vụ ${questId}: ${result.error}`;
+  appendCommand({ verb: "notify", steam, args: { message } });
 }
 
 function processHelpRequest(e) {
@@ -210,9 +252,11 @@ setInterval(() => {
   tail(eventsPath, (e) => {
     if (e.type === "snapshot") processSnapshot(e);
     if (e.type === "quest_request") processQuestRequest(e);
+    if (e.type === "quest_accept") processQuestAccept(e);
     if (e.type === "help_request") processHelpRequest(e);
     if (e.type === "human_request") processHumanRequest(e);
     if (e.type === "revive_request") processReviveRequest(e);
+    if (e.type === "damage_hit" || e.type === "ai_dinosaur_death") processNativeEvent(e);
   });
 
   tail(nativeEventsPath, processNativeEvent);
@@ -322,10 +366,11 @@ const server = http.createServer(async (req, res) => {
         for (const snapshot of sync.snapshots) processSnapshot(snapshot);
         for (const event of sync.events) {
           if (event?.type === "quest_request") processQuestRequest(event);
+          if (event?.type === "quest_accept") processQuestAccept(event);
           if (event?.type === "help_request") processHelpRequest(event);
           if (event?.type === "human_request") processHumanRequest(event);
           if (event?.type === "revive_request") processReviveRequest(event);
-          if (event?.type === "damage_hit") processNativeEvent(event);
+          if (event?.type === "damage_hit" || event?.type === "ai_dinosaur_death") processNativeEvent(event);
         }
       });
 
@@ -373,6 +418,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     return send(res, 400, result);
+  }
+
+  const accept = url.pathname.match(/^\/quests\/([^/]+)\/accept\/([^/]+)$/);
+  if (req.method === "POST" && accept) {
+    const steam = decodeURIComponent(accept[1]);
+    const questId = decodeURIComponent(accept[2]);
+    const result = questEngine.accept(steam, questId);
+    return send(res, result.ok ? 200 : 400, result);
   }
 
   if (req.method === "POST" && url.pathname === "/command") {

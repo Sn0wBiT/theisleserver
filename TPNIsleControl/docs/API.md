@@ -58,6 +58,7 @@ STEAM_ID=76561198000000000
 | `POST` | `/game/sync` | Loopback or game bearer token | `200` |
 | `GET` | `/players` | Bearer token | `200` |
 | `GET` | `/quests/{steam}` | Bearer token | `200` |
+| `POST` | `/quests/{steam}/accept/{questId}` | Bearer token | `200` |
 | `POST` | `/quests/{steam}/claim/{questId}` | Bearer token | `200` |
 | `POST` | `/command` | Bearer token | `202` |
 | `GET` | `/results` | Bearer token | `200` |
@@ -216,6 +217,7 @@ Response:
       "target": 1800,
       "rewardTokens": 100,
       "window": "2026-08-22",
+      "accepted": true,
       "progress": 1800,
       "completed": true,
       "claimed": false
@@ -227,12 +229,25 @@ Response:
 | Quest state field | Type | Description |
 | --- | --- | --- |
 | `window` | string | Current UTC window key for the quest period. |
+| `accepted` | boolean | Whether the player has accepted the quest. Only accepted quests receive progress. |
 | `progress` | number | Accumulated or highest observed value. |
 | `completed` | boolean | Whether progress reached the configured target. |
 | `claimed` | boolean | Whether the reward was added to the token balance. |
 
 The remaining fields come directly from each definition in `quests.json`.
 Unknown Steam IDs are valid and return a zero balance with unstarted quests.
+
+### `POST /quests/{steam}/accept/{questId}`
+
+Accepts a quest in its current window. Progress begins after acceptance. Players
+can also use `/accept <quest-id>` in game; use `/quests` to see quest IDs.
+
+```bash
+curl -X POST -H "Authorization: Bearer $API_TOKEN" \
+  "$BASE_URL/quests/$STEAM_ID/accept/daily_play_30"
+```
+
+Failures return `quest-not-found` or `already-accepted`.
 
 ### `POST /quests/{steam}/claim/{questId}`
 
@@ -262,6 +277,7 @@ Claim failures return `400 Bad Request`:
 | Error | Meaning |
 | --- | --- |
 | `quest-not-found` | No definition has the requested quest ID. |
+| `not-accepted` | The player must accept the quest before it can be claimed. |
 | `not-complete` | The current-window quest has not reached its target. |
 | `already-claimed` | The current-window reward was already claimed. |
 

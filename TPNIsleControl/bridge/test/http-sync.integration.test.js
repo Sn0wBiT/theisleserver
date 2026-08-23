@@ -69,7 +69,7 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   assert.equal(command.verb, "notify");
   assert.equal(command.args.delivery, undefined);
   assert.equal(command.steam, "76561198000000000");
-  assert.match(command.args.message, /Daily: Play for 30 minutes/);
+  assert.match(command.args.message, /Daily: .+\[daily_play_30\].+\/accept daily_play_30/);
 
   const acknowledged = await fetch(`${url}/game/sync`, {
     method: "POST",

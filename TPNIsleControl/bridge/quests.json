@@ -1,7 +1,7 @@
 [
   {
     "id": "daily_play_30",
-    "name": "Play for 30 minutes",
+    "name": "Chơi trong 30 phút",
     "period": "daily",
     "type": "play_seconds",
     "target": 1800,
@@ -9,26 +9,159 @@
   },
   {
     "id": "daily_growth_75",
-    "name": "Reach 75% growth",
+    "name": "Tăng trưởng đạt 75%",
     "period": "daily",
     "type": "reach_growth",
     "target": 0.75,
     "rewardTokens": 75
   },
   {
+    "id": "daily_play_10",
+    "name": "Chơi trong 10 phút",
+    "period": "daily",
+    "type": "play_seconds",
+    "target": 600,
+    "rewardTokens": 35
+  },
+  {
+    "id": "daily_growth_50",
+    "name": "Tăng trưởng đạt 50%",
+    "period": "daily",
+    "type": "reach_growth",
+    "target": 0.5,
+    "rewardTokens": 40
+  },
+  {
     "id": "weekly_kill_3",
-    "name": "Kill 3 players",
+    "name": "Giết 3 khủng long khác",
     "period": "weekly",
     "type": "player_kills",
     "target": 3,
     "rewardTokens": 250
   },
   {
+    "id": "weekly_kill_10",
+    "name": "Giết 10 khủng long khác",
+    "period": "weekly",
+    "type": "player_kills",
+    "target": 10,
+    "rewardTokens": 650
+  },
+  {
+    "id": "daily_ai_kill_3",
+    "name": "Hạ 3 khủng long AI",
+    "period": "daily",
+    "type": "ai_dinosaur_kills",
+    "target": 3,
+    "rewardTokens": 90
+  },
+  {
+    "id": "weekly_ai_kill_15",
+    "name": "Hạ 15 khủng long AI",
+    "period": "weekly",
+    "type": "ai_dinosaur_kills",
+    "target": 15,
+    "rewardTokens": 450
+  },
+  {
+    "id": "weekly_play_3h",
+    "name": "Chơi trong 3 giờ",
+    "period": "weekly",
+    "type": "play_seconds",
+    "target": 10800,
+    "rewardTokens": 225
+  },
+  {
     "id": "monthly_play_10h",
-    "name": "Play for 10 hours",
+    "name": "Chơi trong 10 giờ",
     "period": "monthly",
     "type": "play_seconds",
     "target": 36000,
     "rewardTokens": 500
+  },
+  {
+    "id": "monthly_kill_25",
+    "name": "Giết 25 khủng long khác",
+    "period": "monthly",
+    "type": "player_kills",
+    "target": 25,
+    "rewardTokens": 1500
+  },
+  {
+    "id": "monthly_ai_kill_60",
+    "name": "Hạ 60 khủng long AI",
+    "period": "monthly",
+    "type": "ai_dinosaur_kills",
+    "target": 60,
+    "rewardTokens": 1800
+  },
+  {
+    "id": "weekly_hunt_tyrannosaurus", "name": "Săn Tyrannosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Tyrannosaurus", "target": 1, "rewardTokens": 150
+  },
+  {
+    "id": "weekly_hunt_allosaurus", "name": "Săn Allosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Allosaurus", "target": 1, "rewardTokens": 125
+  },
+  {
+    "id": "weekly_hunt_carnotaurus", "name": "Săn Carnotaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Carnotaurus", "target": 1, "rewardTokens": 125
+  },
+  {
+    "id": "weekly_hunt_ceratosaurus", "name": "Săn Ceratosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Ceratosaurus", "target": 1, "rewardTokens": 110
+  },
+  {
+    "id": "weekly_hunt_deinosuchus", "name": "Săn Deinosuchus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Deinosuchus", "target": 1, "rewardTokens": 150
+  },
+  {
+    "id": "weekly_hunt_triceratops", "name": "Săn Triceratops", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Triceratops", "target": 1, "rewardTokens": 120
+  },
+  {
+    "id": "weekly_hunt_stegosaurus", "name": "Săn Stegosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Stegosaurus", "target": 1, "rewardTokens": 120
+  },
+  {
+    "id": "weekly_hunt_diabloceratops", "name": "Săn Diabloceratops", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Diabloceratops", "target": 1, "rewardTokens": 110
+  },
+  {
+    "id": "weekly_hunt_kentrosaurus", "name": "Săn Kentrosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Kentrosaurus", "target": 1, "rewardTokens": 105
+  },
+  {
+    "id": "weekly_hunt_tenontosaurus", "name": "Săn Tenontosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Tenontosaurus", "target": 1, "rewardTokens": 95
+  },
+  {
+    "id": "weekly_hunt_maiasaura", "name": "Săn Maiasaura", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Maiasaura", "target": 1, "rewardTokens": 95
+  },
+  {
+    "id": "weekly_hunt_pachycephalosaurus", "name": "Săn Pachycephalosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Pachycephalosaurus", "target": 1, "rewardTokens": 100
+  },
+  {
+    "id": "weekly_hunt_dryosaurus", "name": "Săn Dryosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Dryosaurus", "target": 1, "rewardTokens": 70
+  },
+  {
+    "id": "weekly_hunt_hypsilophodon", "name": "Săn Hypsilophodon", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Hypsilophodon", "target": 1, "rewardTokens": 70
+  },
+  {
+    "id": "weekly_hunt_gallimimus", "name": "Săn Gallimimus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Gallimimus", "target": 1, "rewardTokens": 75
+  },
+  {
+    "id": "weekly_hunt_baryonyx", "name": "Săn Baryonyx", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Baryonyx", "target": 1, "rewardTokens": 110
+  },
+  {
+    "id": "weekly_hunt_dilophosaurus", "name": "Săn Dilophosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Dilophosaurus", "target": 1, "rewardTokens": 90
+  },
+  {
+    "id": "weekly_hunt_herrerasaurus", "name": "Săn Herrerasaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Herrerasaurus", "target": 1, "rewardTokens": 90
+  },
+  {
+    "id": "weekly_hunt_austroraptor", "name": "Săn Austroraptor", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Austroraptor", "target": 1, "rewardTokens": 95
+  },
+  {
+    "id": "weekly_hunt_beipiaosaurus", "name": "Săn Beipiaosaurus", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Beipiaosaurus", "target": 1, "rewardTokens": 80
+  },
+  {
+    "id": "weekly_hunt_troodon", "name": "Săn Troodon", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Troodon", "target": 1, "rewardTokens": 85
+  },
+  {
+    "id": "weekly_hunt_omniraptor", "name": "Săn Omniraptor", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Omniraptor", "target": 1, "rewardTokens": 95
+  },
+  {
+    "id": "weekly_hunt_pteranodon", "name": "Săn Pteranodon", "period": "weekly", "type": "ai_dinosaur_kills", "targetSpecies": "Pteranodon", "target": 1, "rewardTokens": 75
   }
 ]

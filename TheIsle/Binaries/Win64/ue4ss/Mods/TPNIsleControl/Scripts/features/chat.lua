@@ -27,6 +27,18 @@ function Chat.registerHook()
                 if controller == nil then return end
                 local command = Runtime.safeString(unwrap(commandParam)):match("^%s*(.-)%s*$") or ""
                 command = command:lower()
+                local acceptQuestId = command:match("^/accept%s+([%w_%-]+)%s*$")
+                if acceptQuestId ~= nil then
+                    local steam = Players.getControllerSteamId(controller)
+                    if steam == "" then return end
+                    Presence.update(steam)
+                    local sent = Transport.sendEvent(string.format(
+                        '{"type":"quest_accept","ts":%d,"steam":"%s","questId":"%s"}',
+                        os.time(), Runtime.jsonEscape(steam), Runtime.jsonEscape(acceptQuestId)))
+                    Runtime.log(string.format("quest accept %s from %s: %s", acceptQuestId, steam,
+                        sent and "queued" or "transport failed"))
+                    return
+                end
                 local eventType = eventTypes[command]
                 if eventType == nil then return end
                 local steam = Players.getControllerSteamId(controller)
@@ -46,7 +58,7 @@ function Chat.registerHook()
                     sent and "queued" or "transport failed"))
             end)
     end)
-    Runtime.log(ok and "player chat command hook registered (/help, /quests, /human, /revive)"
+    Runtime.log(ok and "player chat command hook registered (/help, /quests, /accept, /human, /revive)"
         or ("player chat command hook failed: " .. tostring(err)))
 end
 

@@ -27,6 +27,7 @@ function progressText(quest) {
 }
 
 function statusText(quest) {
+  if (quest.accepted === false) return ` (chưa nhận: /accept ${quest.id})`;
   if (quest.claimed) return " (đã nhận)";
   if (quest.completed) return " (đã hoàn thành)";
   return "";
@@ -36,7 +37,8 @@ export function formatQuestMessage(quests, tokenBalance) {
   const entries = quests.map((quest) => {
     const period = String(quest.period || "quest");
     const periodLabel = period.charAt(0).toUpperCase() + period.slice(1);
-    return `${periodLabel}: ${quest.name} ${progressText(quest)}${statusText(quest)}`;
+    const id = quest.id ? ` [${quest.id}]` : "";
+    return `${periodLabel}: ${quest.name}${id} ${progressText(quest)}${statusText(quest)}`;
   });
 
   if (entries.length === 0) entries.push("Không có nhiệm vụ nào hiện đang khả dụng");

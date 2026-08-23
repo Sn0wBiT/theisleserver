@@ -48,3 +48,11 @@ test("shows an explicit empty state", () => {
   const message = formatQuestMessage([], 0);
   assert.match(message, /^.+ \| .+ \| Tokens: 0$/);
 });
+
+test("shows an acceptance instruction for an unaccepted quest", () => {
+  const message = formatQuestMessage([{
+    id: "daily_play_30", name: "Play", period: "daily", type: "play_seconds",
+    target: 60, progress: 0, accepted: false
+  }], 0);
+  assert.match(message, /\[daily_play_30\].+\/accept daily_play_30/);
+});

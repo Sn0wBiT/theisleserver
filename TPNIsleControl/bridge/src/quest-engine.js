@@ -33,6 +33,7 @@ export class QuestEngine {
     return this.definitions.map((q) => {
       const key = `${steam}:${q.id}:${windowKey(q.period, now)}`;
       const state = this.store.data.questProgress[key] ?? {
+        accepted: false,
         progress: 0,
         completed: false,
         claimed: false
@@ -41,6 +42,7 @@ export class QuestEngine {
       return {
         ...q,
         window: windowKey(q.period, now),
+        accepted: state.accepted === true,
         progress: state.progress,
         completed: state.completed,
         claimed: state.claimed
@@ -52,6 +54,7 @@ export class QuestEngine {
     const key = `${steam}:${q.id}:${windowKey(q.period, new Date())}`;
     if (!this.store.data.questProgress[key]) {
       this.store.data.questProgress[key] = {
+        accepted: false,
         progress: 0,
         completed: false,
         claimed: false
@@ -60,14 +63,16 @@ export class QuestEngine {
     return this.store.data.questProgress[key];
   }
 
-  _apply(steam, type, value, mode = "add") {
+  _apply(steam, type, value, mode = "add", matches = () => true) {
     let changed = false;
 
     for (const q of this.definitions) {
-      if (q.type !== type) continue;
+      if (q.type !== type || !matches(q)) continue;
 
-      const state = this._entry(steam, q);
-      if (state.claimed) continue;
+      const key = `${steam}:${q.id}:${windowKey(q.period, new Date())}`;
+      const state = this.store.data.questProgress[key];
+      // A quest is opt-in: do not create or advance its state before acceptance.
+      if (!state || state.accepted !== true || state.claimed) continue;
 
       if (mode === "max") {
         state.progress = Math.max(Number(state.progress || 0), Number(value || 0));
@@ -119,12 +124,40 @@ export class QuestEngine {
     this._apply(killerSteam, "player_kills", 1, "add");
   }
 
+  onAiDinosaurKill(killerSteam, species = "") {
+    if (!killerSteam) return;
+    const normalizedSpecies = String(species).toLowerCase();
+    this._apply(killerSteam, "ai_dinosaur_kills", 1, "add", (quest) => {
+      const targetSpecies = String(quest.targetSpecies || "").toLowerCase();
+      return !targetSpecies || normalizedSpecies.includes(targetSpecies);
+    });
+  }
+
+  accept(steam, questId) {
+    const q = this.definitions.find((x) => x.id === questId);
+    if (!q) return { ok: false, error: "quest-not-found" };
+
+    const state = this._entry(steam, q);
+    if (state.accepted === true) return { ok: false, error: "already-accepted" };
+
+    // Do not carry forward any progress written by versions that predate
+    // opt-in quests. Progress begins only after the player accepts it.
+    state.accepted = true;
+    state.progress = 0;
+    state.completed = false;
+    state.claimed = false;
+    this.store.save();
+
+    return { ok: true, questId, accepted: true };
+  }
+
   claim(steam, questId) {
     const q = this.definitions.find((x) => x.id === questId);
     if (!q) return { ok: false, error: "quest-not-found" };
 
     const state = this._entry(steam, q);
 
+    if (state.accepted !== true) return { ok: false, error: "not-accepted" };
     if (!state.completed) return { ok: false, error: "not-complete" };
     if (state.claimed) return { ok: false, error: "already-claimed" };
 
