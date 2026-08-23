@@ -65,7 +65,9 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   });
 
   assert.equal(response.status, 200);
-  const command = JSON.parse(await response.text());
+  const commands = (await response.text()).trim().split("\n").map((line) => JSON.parse(line));
+  assert.equal(commands.length, 1);
+  const command = commands[0];
   assert.equal(command.verb, "notify");
   assert.equal(command.args.delivery, undefined);
   assert.equal(command.steam, "76561198000000000");
@@ -74,7 +76,7 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   const acknowledged = await fetch(`${url}/game/sync`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ acknowledgements: [command.id] })
+    body: JSON.stringify({ acknowledgements: commands.map(({ id }) => id) })
   });
   assert.equal(acknowledged.status, 200);
   assert.equal(await acknowledged.text(), "");
@@ -91,7 +93,7 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   assert.equal(helpCommand.verb, "notify");
   assert.equal(helpCommand.args.delivery, undefined);
   assert.match(helpCommand.args.message, /\/help\s+-/);
-  assert.match(helpCommand.args.message, /\/quests\s+-/);
+  assert.match(helpCommand.args.message, /\/quests \[trang\]\s+-/);
   assert.match(helpCommand.args.message, /\/human\s+-/);
   assert.match(helpCommand.args.message, /\/revive\s+-/);
 

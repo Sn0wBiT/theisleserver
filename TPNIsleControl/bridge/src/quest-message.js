@@ -33,7 +33,7 @@ function statusText(quest) {
   return "";
 }
 
-export function formatQuestMessage(quests, tokenBalance) {
+function questEntries(quests, tokenBalance) {
   const entries = quests.map((quest) => {
     const period = String(quest.period || "quest");
     const periodLabel = period.charAt(0).toUpperCase() + period.slice(1);
@@ -44,5 +44,31 @@ export function formatQuestMessage(quests, tokenBalance) {
   if (entries.length === 0) entries.push("Không có nhiệm vụ nào hiện đang khả dụng");
   entries.push(`Tokens: ${Math.max(0, finiteNumber(tokenBalance))}`);
 
-  return `Nhiệm vụ | ${entries.join(" | ")}`;
+  return entries;
+}
+
+export function formatQuestMessage(quests, tokenBalance) {
+  return `Nhiệm vụ | ${questEntries(quests, tokenBalance).join(" | ")}`;
+}
+
+// ClientShowNotification has a small display buffer. Split only at quest
+// boundaries so no quest ID or acceptance instruction is cut in half.
+export function formatQuestMessages(quests, tokenBalance, maxLength = 300) {
+  const entries = questEntries(quests, tokenBalance);
+  const chunks = [];
+  let chunk = [];
+
+  for (const entry of entries) {
+    const candidate = [...chunk, entry].join(" | ");
+    if (chunk.length > 0 && `Nhiệm vụ | ${candidate}`.length > maxLength) {
+      chunks.push(chunk);
+      chunk = [entry];
+    } else {
+      chunk.push(entry);
+    }
+  }
+  if (chunk.length > 0) chunks.push(chunk);
+
+  return chunks.map((items, index) =>
+    `Nhiệm vụ (${index + 1}/${chunks.length}) | ${items.join(" | ")}`);
 }

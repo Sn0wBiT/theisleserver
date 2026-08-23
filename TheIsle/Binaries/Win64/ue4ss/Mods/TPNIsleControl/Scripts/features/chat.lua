@@ -27,6 +27,18 @@ function Chat.registerHook()
                 if controller == nil then return end
                 local command = Runtime.safeString(unwrap(commandParam)):match("^%s*(.-)%s*$") or ""
                 command = command:lower()
+                local questPage = command:match("^/quests%s*(%d*)%s*$")
+                if questPage ~= nil then
+                    local steam = Players.getControllerSteamId(controller)
+                    if steam == "" then return end
+                    Presence.update(steam)
+                    local sent = Transport.sendEvent(string.format(
+                        '{"type":"quest_request","ts":%d,"steam":"%s","page":%d}',
+                        os.time(), Runtime.jsonEscape(steam), tonumber(questPage) or 1))
+                    Runtime.log(string.format("quest page %s from %s: %s", questPage == "" and "1" or questPage,
+                        steam, sent and "queued" or "transport failed"))
+                    return
+                end
                 local acceptQuestId = command:match("^/accept%s+([%w_%-]+)%s*$")
                 if acceptQuestId ~= nil then
                     local steam = Players.getControllerSteamId(controller)

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatQuestMessage } from "../src/quest-message.js";
+import { formatQuestMessage, formatQuestMessages } from "../src/quest-message.js";
 
 test("formats all quest periods, progress, status, and token balance", () => {
   const message = formatQuestMessage([
@@ -55,4 +55,14 @@ test("shows an acceptance instruction for an unaccepted quest", () => {
     target: 60, progress: 0, accepted: false
   }], 0);
   assert.match(message, /\[daily_play_30\].+\/accept daily_play_30/);
+});
+
+test("splits long quest lists on quest boundaries", () => {
+  const messages = formatQuestMessages(Array.from({ length: 4 }, (_, index) => ({
+    id: `quest_${index}`, name: `Quest ${index}`, period: "daily", type: "player_kills",
+    target: 3, progress: 0, accepted: false
+  })), 0, 105);
+  assert.ok(messages.length > 1);
+  assert.ok(messages.every((message) => message.length <= 105));
+  assert.match(messages.at(-1), /Tokens: 0/);
 });

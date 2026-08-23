@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { JsonStore } from "./store.js";
 import { QuestEngine } from "./quest-engine.js";
-import { formatQuestMessage } from "./quest-message.js";
+import { formatQuestMessages } from "./quest-message.js";
 import { formatHelpMessage } from "./help-message.js";
 import { completeNdjsonChunk } from "./ndjson.js";
 import { parseGameSync, PendingCommandQueue } from "./game-sync.js";
@@ -184,14 +184,14 @@ function processQuestRequest(e) {
 
   const tokenBalance = Number(store.data.tokenBalances[steam] || 0);
   const playerQuests = questEngine.getPlayerState(steam);
+  const messages = formatQuestMessages(playerQuests, tokenBalance, 240);
+  const requestedPage = Math.floor(Number(e?.page || 1));
+  const page = Math.min(messages.length, Math.max(1, Number.isFinite(requestedPage) ? requestedPage : 1));
+  const navigation = messages.length > 1
+    ? ` | Trang ${page}/${messages.length}${page < messages.length ? ` | /quests ${page + 1}` : ""}`
+    : "";
 
-  appendCommand({
-    verb: "notify",
-    steam,
-    args: {
-      message: formatQuestMessage(playerQuests, tokenBalance)
-    }
-  });
+  appendCommand({ verb: "notify", steam, args: { message: `${messages[page - 1]}${navigation}` } });
 }
 
 function processQuestAccept(e) {
