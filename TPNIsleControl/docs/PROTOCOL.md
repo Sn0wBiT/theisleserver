@@ -88,7 +88,9 @@ quest, a player uses `/accept <quest-id>`; it produces a `quest_accept` event
 with a `questId` field. The bridge only advances accepted quests.
 
 The sidecar reads the player's current quest windows and token balance, formats
-all available quests, and queues a `notify` command for that player.
+the requested quest page, and queues a `notify` command for that player.
+If the list spans multiple pages, the notification includes the next `/quests`
+command.
 Help requests similarly return the current player command list.
 Requests older than 30 seconds are ignored so restarting the sidecar does not
 replay old chat responses.

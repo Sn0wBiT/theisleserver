@@ -44,11 +44,21 @@ local function revive(steam)
     if not Players.isAdmin(steam) then return false, "admin access required" end
     local pawn, err = targetPawn(steam)
     if pawn == nil then return false, err end
-    local maximum = Runtime.safeNumber(function() return pawn:GetMaxHealth() end)
-    if maximum == nil or maximum <= 0 then return false, "GetMaxHealth unavailable" end
-    local ok, callErr = pcall(function() pawn:SetHealth(maximum) end)
+
+    local maxHealth = Runtime.safeNumber(function() return pawn:GetMaxHealth() end)
+    local maxHunger = Runtime.safeNumber(function() return pawn:GetMaxHunger() end)
+    local maxThirst = Runtime.safeNumber(function() return pawn:GetMaxThirst() end)
+    if maxHealth == nil or maxHealth <= 0 then return false, "GetMaxHealth unavailable" end
+    if maxHunger == nil or maxHunger <= 0 then return false, "GetMaxHunger unavailable" end
+    if maxThirst == nil or maxThirst <= 0 then return false, "GetMaxThirst unavailable" end
+
+    local ok, callErr = pcall(function()
+        pawn:SetHealth(maxHealth)
+        pawn:SetHunger(maxHunger)
+        pawn:SetThirst(maxThirst)
+    end)
     if not ok then return false, "revive failed: " .. tostring(callErr) end
-    return true, "revived with full health"
+    return true, "revived with full health, hunger, and thirst"
 end
 
 local function setVital(steam, args)

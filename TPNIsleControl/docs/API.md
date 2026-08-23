@@ -354,6 +354,7 @@ All current game-side commands target the player identified by `steam`.
 | `prime` | `{ "value"?: boolean }` | Sets prime eligibility; `value` defaults to `true`. |
 | `unprime` | `{}` | Clears prime eligibility. |
 | `notify` | `{ "message": string }` | Shows a notification to an online player. |
+| `chat` | `{ "message": string, "sender"?: string }` | Adds a targeted message to the player's game chat history; falls back to a notification if unavailable. |
 | `human` | `{}` | Test command: swaps the player's live dinosaur to the playable Generation 2 human. |
 
 For `mutations`, provide at least one of `slot1` through `slot4`. The aliases
@@ -372,6 +373,7 @@ Examples:
 { "verb": "prime",     "steam": "76561198000000000", "args": { "value": true } }
 { "verb": "unprime",   "steam": "76561198000000000", "args": {} }
 { "verb": "notify",    "steam": "76561198000000000", "args": { "message": "Welcome!" } }
+{ "verb": "chat",      "steam": "76561198000000000", "args": { "sender": "TPN Quests", "message": "Daily: Play 30 minutes 12/30" } }
 { "verb": "human",       "steam": "76561198000000000", "args": {} }
 ```
 
