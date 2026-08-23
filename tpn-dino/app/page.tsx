@@ -1,69 +1,82 @@
-import Image from "next/image";
+import { getSession } from "@/lib/auth";
+import { getQuests, type Quest, type QuestState } from "@/lib/quests";
 
-export default function Home() {
+function SteamIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-9.8 8.1l5.2 2.1a2.9 2.9 0 0 1 1.6-.6l2.3-3.4a3.8 3.8 0 1 1 3.4 5.4l-3.8 2.7a2.9 2.9 0 0 1-5.6.7l-2.4-1A10 10 0 1 0 12 2Zm-4.1 15.2a1.7 1.7 0 1 0 1.3-3.1l-1.2-.5a2.8 2.8 0 0 1-.6 2.4l.5 1.2Zm6.8-5a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Zm0-.8a1.6 1.6 0 1 1 0-3.2 1.6 1.6 0 0 1 0 3.2Z" /></svg>;
+}
+
+function questStatus(quest: Quest) {
+  if (quest.claimed) return "Claimed";
+  if (quest.completed) return "Complete";
+  if (quest.accepted) return "In progress";
+  return "Not accepted";
+}
+
+function QuestCard({ quest }: { quest: Quest }) {
+  const progress = Math.max(0, Number(quest.progress) || 0);
+  const target = Math.max(1, Number(quest.target) || 1);
+  const percent = Math.min(100, Math.round((progress / target) * 100));
+  const status = questStatus(quest);
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <article className="quest-card">
+      <div className="quest-card__top">
+        <span className={`period period--${quest.period}`}>{quest.period}</span>
+        <span className={`status status--${status.toLowerCase().replace(" ", "-")}`}>{status}</span>
+      </div>
+      <h3>{quest.name}</h3><p className="quest-id">{quest.id}</p>
+      <div className="progress-copy"><span>Progress</span><strong>{progress.toLocaleString()} / {target.toLocaleString()}</strong></div>
+      <div className="progress-track" aria-label={`${percent}% complete`}><span style={{ width: `${percent}%` }} /></div>
+      <div className="reward"><span>Reward</span><strong>+{quest.rewardTokens} tokens</strong></div>
+    </article>
   );
+}
+
+function Login() {
+  return (
+    <main className="login-shell">
+      <section className="login-card">
+        <div className="brand-mark">TPN</div><p className="eyebrow">The Isle community</p>
+        <h1>Your hunt.<br />Your rewards.</h1>
+        <p className="lede">Sign in with Steam to see your live quest progress and token balance.</p>
+        <a className="steam-button" href="/auth/steam"><SteamIcon />Sign in through Steam</a>
+        <p className="fine-print">We only use your public Steam ID to match your in-game progress.</p>
+      </section>
+      <aside className="login-art" aria-hidden="true"><div className="sun" /><div className="ridge ridge--back" /><div className="ridge ridge--front" /><div className="dino">◆</div></aside>
+    </main>
+  );
+}
+
+function Dashboard({ state }: { state: QuestState }) {
+  const active = state.quests.filter((quest) => quest.accepted && !quest.claimed).length;
+  const complete = state.quests.filter((quest) => quest.completed).length;
+  return (
+    <main className="dashboard">
+      <header className="topbar">
+        <a className="logo" href="/">TPN<span>Questboard</span></a>
+        <div className="account"><div><span>Steam account</span><strong>{state.steam}</strong></div><a href="/auth/logout">Sign out</a></div>
+      </header>
+      <section className="hero">
+        <div><p className="eyebrow">Live progression</p><h1>Questboard</h1><p>Track your current objectives. Progress updates while you play on the server.</p></div>
+        <a className="refresh" href="/">Refresh quests ↻</a>
+      </section>
+      <section className="stats" aria-label="Quest summary">
+        <div><span>Token balance</span><strong>{state.tokenBalance.toLocaleString()}</strong></div>
+        <div><span>Active quests</span><strong>{active}</strong></div>
+        <div><span>Completed</span><strong>{complete}</strong></div>
+      </section>
+      <section className="quest-section">
+        <div className="section-title"><div><p className="eyebrow">Current cycle</p><h2>Your quests</h2></div><span>{state.quests.length} available</span></div>
+        {state.quests.length ? <div className="quest-grid">{state.quests.map((quest) => <QuestCard key={quest.id} quest={quest} />)}</div> : <div className="empty">No quests are available in the current cycle.</div>}
+      </section>
+    </main>
+  );
+}
+
+export default async function Home() {
+  const session = await getSession();
+  if (!session) return <Login />;
+  try { return <Dashboard state={await getQuests(session.steamId)} />; }
+  catch (error) {
+    return <main className="error-shell"><p className="eyebrow">Quest service offline</p><h1>We couldn&apos;t load your quests.</h1><p>{error instanceof Error ? error.message : "Unknown upstream error"}</p><div><a className="steam-button" href="/">Try again</a><a className="text-link" href="/auth/logout">Sign out</a></div></main>;
+  }
 }
