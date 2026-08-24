@@ -2,14 +2,19 @@
 
 #include <WebView2EnvironmentOptions.h>
 #include <wrl/event.h>
+#include <shellapi.h>
+#include <regex>
 #include <utility>
 
 using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
 
 bool WebViewHost::Initialize(HWND parent, bool development, const std::wstring& devUrl,
-                             const std::filesystem::path& uiFolder, bool enableDevTools, CommandHandler handler) {
+                             const std::filesystem::path& uiFolder, bool enableDevTools,
+                             const std::wstring& apiOrigin, CommandHandler handler) {
     parent_ = parent;
+    development_ = development;
+    apiOrigin_ = apiOrigin;
     commandHandler_ = std::move(handler);
     const HRESULT result = CreateCoreWebView2EnvironmentWithOptions(nullptr, nullptr, nullptr,
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
@@ -92,6 +97,19 @@ void WebViewHost::HandleMessage(const std::wstring& json) {
     auto hasType = [&json](const wchar_t* type) { return json.find(std::wstring(L"\"type\":\"") + type + L"\"") != std::wstring::npos; };
     if (hasType(L"overlay.closePanel")) commandHandler_(L"overlay.closePanel", false);
     else if (hasType(L"overlay.setInteractive")) commandHandler_(L"overlay.setInteractive", json.find(L"\"value\":true") != std::wstring::npos);
-    else if (hasType(L"app.getVersion")) PostJson(L"{\"type\":\"app.version\",\"version\":\"0.1.0\"}");
+    else if (hasType(L"app.getVersion")) {
+        PostJson(std::wstring(L"{\"type\":\"app.config\",\"apiUrl\":\"") + apiOrigin_ + L"\"}");
+    }
+    else if (hasType(L"app.openLogin")) {
+        const std::wregex codePattern(LR"("browserCode"\s*:\s*"([A-Za-z0-9_-]{32})")");
+        const std::wregex productionOrigin(LR"(^https://[A-Za-z0-9.-]+(?::[0-9]+)?$)");
+        const std::wregex developmentOrigin(LR"(^http://(?:localhost|127\.0\.0\.1)(?::[0-9]+)?$)");
+        std::wsmatch match;
+        const bool originAllowed = std::regex_match(apiOrigin_, productionOrigin) || (development_ && std::regex_match(apiOrigin_, developmentOrigin));
+        if (originAllowed && std::regex_search(json, match, codePattern)) {
+            const std::wstring url = apiOrigin_ + L"/hud/connect?code=" + match[1].str();
+            ShellExecuteW(nullptr, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
+    }
     else if (hasType(L"app.exit")) commandHandler_(L"app.exit", false);
 }

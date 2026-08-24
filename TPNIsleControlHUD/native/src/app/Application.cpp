@@ -39,7 +39,7 @@ bool Application::Initialize() {
     if (!input_.Register(overlay_.GetHandle(), config_.overlayHotkey)) Log(L"hotkey registration failed");
     SetEnvironmentVariableW(L"WEBVIEW2_DEFAULT_BACKGROUND_COLOR", L"00000000");
     if (!webview_.Initialize(overlay_.GetHandle(), config_.development, config_.frontendDevUrl,
-        executableDirectory_ / L"ui", config_.enableDevTools,
+        executableDirectory_ / L"ui", config_.enableDevTools, config_.apiOrigin,
         [this](const std::wstring& type, bool value) { HandleWebCommand(type, value); })) {
         Log(L"WebView2 initialization failed");
         return false;

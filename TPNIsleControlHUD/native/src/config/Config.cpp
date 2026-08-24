@@ -37,6 +37,7 @@ Config Config::Load(const std::filesystem::path& path) {
     config.development = BoolValue(json, "development", config.development);
     config.enableDevTools = BoolValue(json, "enableDevTools", config.enableDevTools);
     config.frontendDevUrl = Utf8ToWide(StringValue(json, "frontendDevUrl", "http://localhost:5173"));
+    config.apiOrigin = Utf8ToWide(StringValue(json, "apiOrigin", "https://isle.example.tpn"));
     config.overlayHotkey = Utf8ToWide(StringValue(json, "overlayHotkey", "F6"));
 
     const std::regex arrayPattern(R"("gameExecutables"\s*:\s*\[([^\]]*)\])");

@@ -1,10 +1,11 @@
-import { getAccessToken } from "@/services/auth";
+import { getAccessToken, sharedRefresh, type AuthResult } from "@/services/auth";
 
 export type ApiError = Error & { status: number; code?: string };
 
-export const apiUrl = "https://isle.example.tpn";
+export let apiUrl = import.meta.env.VITE_API_URL ?? "https://isle.example.tpn";
+export function setApiUrl(value: string) { apiUrl = value.replace(/\/$/, ""); }
 
-export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
   const baseUrl = apiUrl.replace(/\/$/, "");
   const token = getAccessToken();
   const headers = new Headers(options.headers);
@@ -22,6 +23,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
 
   const body = await response.json().catch(() => null) as { error?: string; message?: string } | null;
+  if (response.status === 401 && retry && getAccessToken()) {
+    const refreshed = await sharedRefresh((refreshToken) => rawRequest<AuthResult>("/api/hud-auth/refresh", { method: "POST", body: JSON.stringify({ refreshToken }) }));
+    if (refreshed) return request<T>(path, options, false);
+  }
   if (!response.ok) {
     const error = new Error(body?.message ?? readableError(body?.error, response.status)) as ApiError;
     error.status = response.status;
@@ -34,6 +39,13 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     error.code = "malformed-response";
     throw error;
   }
+  return body as T;
+}
+
+export async function rawRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${apiUrl}${path}`, { ...options, headers: { Accept: "application/json", "Content-Type": "application/json", ...options.headers } });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) { const error = new Error(body?.message ?? body?.error ?? `HTTP ${response.status}`) as ApiError; error.status = response.status; error.code = body?.error; throw error; }
   return body as T;
 }
 

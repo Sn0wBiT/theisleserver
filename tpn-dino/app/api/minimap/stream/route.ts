@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/auth";
+import { resolveApiIdentity } from "@/lib/hud-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export function OPTIONS() {
 }
 
 export async function GET(request: Request) {
-  const session = await getSession();
+  const session = await resolveApiIdentity(request);
   if (!session) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }

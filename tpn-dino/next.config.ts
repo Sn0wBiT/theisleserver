@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
     return [
       { source: "/api/quests/:path*", headers: corsHeaders },
       { source: "/api/minimap/:path*", headers: corsHeaders },
+      { source: "/api/me", headers: corsHeaders },
+      { source: "/api/hud-auth/:path*", headers: corsHeaders },
     ];
   },
 };

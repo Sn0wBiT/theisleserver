@@ -11,7 +11,8 @@ class WebViewHost {
 public:
     using CommandHandler = std::function<void(const std::wstring& type, bool value)>;
     bool Initialize(HWND parent, bool development, const std::wstring& devUrl,
-                    const std::filesystem::path& uiFolder, bool enableDevTools, CommandHandler handler);
+                    const std::filesystem::path& uiFolder, bool enableDevTools,
+                    const std::wstring& apiOrigin, CommandHandler handler);
     void Resize();
     void Close();
     void PostJson(const std::wstring& json) const;
@@ -22,5 +23,6 @@ private:
     CommandHandler commandHandler_;
     Microsoft::WRL::ComPtr<ICoreWebView2Controller> controller_;
     Microsoft::WRL::ComPtr<ICoreWebView2> webview_;
+    bool development_{false};
+    std::wstring apiOrigin_;
 };
-

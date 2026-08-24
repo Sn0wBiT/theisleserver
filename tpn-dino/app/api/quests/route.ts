@@ -1,12 +1,12 @@
-import { getSession } from "@/lib/auth";
+import { resolveApiIdentity } from "@/lib/hud-auth";
 import { getQuests } from "@/lib/quests";
 
 export function OPTIONS() {
   return new Response(null, { status: 204 });
 }
 
-export async function GET() {
-  const session = await getSession();
+export async function GET(request: Request) {
+  const session = await resolveApiIdentity(request);
   if (!session) return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   try {
     return Response.json(await getQuests(session.steamId));

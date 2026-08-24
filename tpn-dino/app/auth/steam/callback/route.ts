@@ -1,4 +1,5 @@
 import { createSession } from "@/lib/auth";
+import { cacheSteamProfile } from "@/lib/hud-auth";
 import { NextResponse } from "next/server";
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login";
@@ -8,7 +9,13 @@ export async function GET(request: Request) {
   const params = new URLSearchParams(requestUrl.searchParams);
   const claimedId = params.get("openid.claimed_id") ?? "";
   const match = claimedId.match(/^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/);
-  if (!match || params.get("openid.op_endpoint") !== STEAM_OPENID_URL) {
+  const returnTo = params.get("openid.return_to");
+  let validReturnTo = false;
+  try {
+    const callbackUrl = new URL(returnTo ?? "");
+    validReturnTo = callbackUrl.origin === requestUrl.origin && callbackUrl.pathname === "/auth/steam/callback";
+  } catch { /* Invalid OpenID callback URL. */ }
+  if (!match || !validReturnTo || params.get("openid.op_endpoint") !== STEAM_OPENID_URL) {
     return NextResponse.redirect(new URL("/?auth=invalid", requestUrl.origin));
   }
   params.set("openid.mode", "check_authentication");
@@ -22,7 +29,10 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL("/?auth=failed", requestUrl.origin));
     }
     await createSession(match[1]);
-    return NextResponse.redirect(new URL("/", requestUrl.origin));
+    await cacheSteamProfile(match[1]);
+    const destination = requestUrl.searchParams.get("returnTo");
+    const safeReturnTo = destination === "/hud/confirm" || destination?.startsWith("/hud/connect?") ? destination : "/";
+    return NextResponse.redirect(new URL(safeReturnTo, requestUrl.origin));
   } catch {
     return NextResponse.redirect(new URL("/?auth=unavailable", requestUrl.origin));
   }
