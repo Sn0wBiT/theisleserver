@@ -242,7 +242,23 @@ namespace TPNIsleControlNative
 
             {
                 std::lock_guard lock{mutex};
-                if (!configured || outgoing.size() >= max_queue_depth) return false;
+                if (!configured) return false;
+                constexpr std::string_view position_prefix = "{\"snapshots\":[],\"positions\":[";
+                if (body.starts_with(position_prefix))
+                {
+                    for (auto it = outgoing.begin(); it != outgoing.end();)
+                    {
+                        if (it->starts_with(position_prefix))
+                        {
+                            it = outgoing.erase(it);
+                        }
+                        else
+                        {
+                            ++it;
+                        }
+                    }
+                }
+                if (outgoing.size() >= max_queue_depth) return false;
                 outgoing.emplace_back(std::move(body));
             }
             wake.notify_one();

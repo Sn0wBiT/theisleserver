@@ -97,7 +97,10 @@ function processSnapshot(s) {
 
   const previous = livePlayers.get(s.steam);
 
-  livePlayers.set(s.steam, s);
+  livePlayers.set(s.steam, {
+    ...s,
+    positionUpdatedAt: s?.pos ? Date.now() : previous?.positionUpdatedAt
+  });
 
   if (s.addr) {
     addrToSteam.set(String(s.addr).toLowerCase(), s.steam);
@@ -129,6 +132,20 @@ function processSnapshot(s) {
       }
     }
   }
+}
+
+function processPosition(update) {
+  const steam = String(update?.steam || "");
+  const x = Number(update?.pos?.x);
+  const y = Number(update?.pos?.y);
+  const z = Number(update?.pos?.z);
+  if (!steam || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return;
+
+  livePlayers.set(steam, {
+    ...(livePlayers.get(steam) || { steam }),
+    pos: { x, y, z },
+    positionUpdatedAt: Date.now()
+  });
 }
 
 function processNativeEvent(e) {
@@ -366,6 +383,7 @@ const server = http.createServer(async (req, res) => {
 
       store.batch(() => {
         for (const snapshot of sync.snapshots) processSnapshot(snapshot);
+        for (const position of sync.positions) processPosition(position);
         for (const event of sync.events) {
           if (event?.type === "quest_request") processQuestRequest(event);
           if (event?.type === "quest_accept") processQuestAccept(event);

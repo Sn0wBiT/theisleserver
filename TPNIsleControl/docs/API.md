@@ -86,6 +86,9 @@ is configured, it requires that bearer token instead.
   "snapshots": [
     {"steam":"76561198000000000","ts":1777000000,"growth":0.75}
   ],
+  "positions": [
+    {"steam":"76561198000000000","pos":{"x":1,"y":2,"z":3}}
+  ],
   "events": [
     {"type":"quest_request","steam":"76561198000000000","ts":1777000000},
     {"type":"help_request","steam":"76561198000000000","ts":1777000000}
@@ -98,8 +101,10 @@ The response uses `application/x-ndjson`. Each line is a pending command. A
 command remains pending until its ID appears in a later `acknowledgements`
 array. An empty response means there are no commands.
 
-The request body is limited to 1 MiB, 500 snapshots, 1,000 events, and 1,000
-acknowledgements.
+The request body is limited to 1 MiB, 500 snapshots, 500 positions, 1,000
+events, and 1,000 acknowledgements. Position updates are merged into the live
+player record with a bridge-generated millisecond `positionUpdatedAt` value and
+do not update quest state or persistent storage.
 
 ## Health
 
@@ -165,6 +170,7 @@ Response:
         "y": 2,
         "z": 3
       },
+      "positionUpdatedAt": 1777000000123,
       "vitals": {
         "hp": 900,
         "hpMax": 1000,

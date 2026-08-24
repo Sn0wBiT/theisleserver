@@ -1,4 +1,5 @@
 const MAX_SNAPSHOTS = 500;
+const MAX_POSITIONS = 500;
 const MAX_EVENTS = 1000;
 const MAX_ACKS = 1000;
 
@@ -16,6 +17,7 @@ export function parseGameSync(input) {
 
   return {
     snapshots: arrayField(input, "snapshots", MAX_SNAPSHOTS),
+    positions: arrayField(input, "positions", MAX_POSITIONS),
     events: arrayField(input, "events", MAX_EVENTS),
     acknowledgements: arrayField(input, "acknowledgements", MAX_ACKS)
       .map(String)

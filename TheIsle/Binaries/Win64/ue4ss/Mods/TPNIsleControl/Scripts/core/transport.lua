@@ -43,17 +43,27 @@ local function acknowledgementJson()
     return "[" .. table.concat(values, ",") .. "]"
 end
 
-function Transport.enqueueSync(snapshots, events)
+function Transport.enqueueSync(snapshots, events, positions)
     if not Transport.isHttp() then return false end
     local body = string.format(
-        '{"snapshots":[%s],"events":[%s],"acknowledgements":%s}',
+        '{"snapshots":[%s],"positions":[%s],"events":[%s],"acknowledgements":%s}',
         table.concat(snapshots or {}, ","),
+        table.concat(positions or {}, ","),
         table.concat(events or {}, ","),
         acknowledgementJson())
     local ok, queued = pcall(function() return TPNIsleControlHttpEnqueue(body) end)
     if not ok or queued ~= true then return false end
     pendingAcknowledgements = {}
     return true
+end
+
+function Transport.enqueuePositions(positions)
+    if not Transport.isHttp() then return false end
+    local body = string.format(
+        '{"snapshots":[],"positions":[%s],"events":[],"acknowledgements":[]}',
+        table.concat(positions or {}, ","))
+    local ok, queued = pcall(function() return TPNIsleControlHttpEnqueue(body) end)
+    return ok and queued == true
 end
 
 function Transport.sendEvent(line)

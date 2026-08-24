@@ -73,6 +73,22 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   assert.equal(command.steam, "76561198000000000");
   assert.match(command.args.message, /Daily: .+\[daily_play_30\].+\/accept daily_play_30/);
 
+  const positionResponse = await fetch(`${url}/game/sync`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      positions: [{ steam: "76561198000000000", pos: { x: 100, y: 200, z: 300 } }]
+    })
+  });
+  assert.equal(positionResponse.status, 200);
+
+  const playersResponse = await fetch(`${url}/players`, {
+    headers: { authorization: "Bearer test-api-token" }
+  });
+  const players = (await playersResponse.json()).players;
+  assert.deepEqual(players[0].pos, { x: 100, y: 200, z: 300 });
+  assert.equal(typeof players[0].positionUpdatedAt, "number");
+
   const acknowledged = await fetch(`${url}/game/sync`, {
     method: "POST",
     headers: { "content-type": "application/json" },

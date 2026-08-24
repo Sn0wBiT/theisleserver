@@ -15,6 +15,11 @@ Every snapshot interval, Lua submits all online player snapshots in one call to
 worker retries requests without blocking the game thread and queues response
 commands for Lua to poll.
 
+While HTTP transport is active, Lua also submits lightweight player position
+updates every `positionIntervalMs` (100 ms by default). These contain only the
+Steam ID and Unreal `x`, `y`, and `z` coordinates. They update bridge memory for
+latency-sensitive consumers such as proximity VOIP and are not persisted.
+
 The bridge keeps live snapshots and pending commands in memory. Only aggregated
 quest progress, token balances, and minimal last-snapshot state are persisted.
 Multiple quest changes in one HTTP batch produce one atomic state-file write.

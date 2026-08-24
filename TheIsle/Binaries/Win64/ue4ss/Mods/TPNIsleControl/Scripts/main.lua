@@ -4,6 +4,7 @@
 local Runtime = require("core.runtime")
 local Transport = require("core.transport")
 local Presence = require("game.presence")
+local Positions = require("game.positions")
 local Snapshots = require("game.snapshots")
 local Chat = require("features.chat")
 local Diagnostics = require("features.diagnostics")
@@ -16,6 +17,10 @@ Diagnostics.registerDamageHook()
 
 LoopInGameThreadWithDelay(Runtime.config.presenceRefreshMs, function()
     pcall(Presence.refresh)
+end)
+
+LoopInGameThreadWithDelay(Runtime.config.positionIntervalMs, function()
+    pcall(Positions.capture)
 end)
 
 LoopInGameThreadWithDelay(Runtime.config.snapshotIntervalMs, function()

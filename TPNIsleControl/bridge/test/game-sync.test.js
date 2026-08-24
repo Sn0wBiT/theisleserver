@@ -5,12 +5,14 @@ import { parseGameSync, PendingCommandQueue } from "../src/game-sync.js";
 test("parses a batched game sync payload", () => {
   const parsed = parseGameSync({
     snapshots: [{ steam: "1" }],
+    positions: [{ steam: "1", pos: { x: 1, y: 2, z: 3 } }],
     events: [{ type: "quest_request", steam: "1" }],
     acknowledgements: [123]
   });
 
   assert.deepEqual(parsed, {
     snapshots: [{ steam: "1" }],
+    positions: [{ steam: "1", pos: { x: 1, y: 2, z: 3 } }],
     events: [{ type: "quest_request", steam: "1" }],
     acknowledgements: ["123"]
   });
@@ -20,6 +22,13 @@ test("rejects oversized batches", () => {
   assert.throws(
     () => parseGameSync({ snapshots: Array(501).fill({}) }),
     /snapshots-limit-exceeded/
+  );
+});
+
+test("rejects oversized position batches", () => {
+  assert.throws(
+    () => parseGameSync({ positions: Array(501).fill({}) }),
+    /positions-limit-exceeded/
   );
 });
 

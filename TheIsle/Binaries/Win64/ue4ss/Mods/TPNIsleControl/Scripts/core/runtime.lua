@@ -14,6 +14,7 @@ Runtime.config = {
     transport = "file",
     bridgeUrl = "http://127.0.0.1:31990/game/sync",
     bridgeToken = "",
+    positionIntervalMs = 100,
     snapshotIntervalMs = 5000,
     commandPollMs = 1000,
     presenceRefreshMs = 15000,
@@ -134,6 +135,7 @@ function Runtime.loadConfig()
     if value ~= nil then config.bridgeToken = value end
 
     for _, option in ipairs({
+        { "positionIntervalMs", 100 },
         { "snapshotIntervalMs", 1000 },
         { "commandPollMs", 250 },
         { "presenceRefreshMs", 5000 },
@@ -144,8 +146,8 @@ function Runtime.loadConfig()
     end
 
     config.adminSteamIds = Runtime.jsonReadStringArray(body, "adminSteamIds")
-    Runtime.log(string.format("config loaded: snapshots=%dms commands=%dms admins=%d",
-        config.snapshotIntervalMs, config.commandPollMs, #config.adminSteamIds))
+    Runtime.log(string.format("config loaded: positions=%dms snapshots=%dms commands=%dms admins=%d",
+        config.positionIntervalMs, config.snapshotIntervalMs, config.commandPollMs, #config.adminSteamIds))
 end
 
 return Runtime
