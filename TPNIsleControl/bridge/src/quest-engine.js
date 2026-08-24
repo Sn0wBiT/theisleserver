@@ -58,6 +58,7 @@ export class QuestEngine {
 
     const growth = Number(snapshot.growth);
     return {
+      dinosaurId: snapshot.dinosaurId || null,
       species: snapshot.species || null,
       growth: Number.isFinite(growth) ? growth : null,
       snapshotAt: Number(snapshot.ts) || null
@@ -88,7 +89,7 @@ export class QuestEngine {
   }
 
   _apply(steam, type, value, mode = "add", matches = () => true) {
-    let changed = false;
+    const changedKeys = [];
 
     for (const q of this.definitions) {
       if (q.type !== type || !matches(q)) continue;
@@ -109,10 +110,10 @@ export class QuestEngine {
         state.completed = true;
       }
 
-      changed = true;
+      changedKeys.push(key);
     }
 
-    if (changed) this.store.save();
+    for (const key of changedKeys) this.store.saveQuest?.(key);
   }
 
   onSnapshot(snapshot) {
@@ -135,13 +136,14 @@ export class QuestEngine {
 
     this.store.data.lastSnapshots[steam] = {
       ts,
+      dinosaurId: snapshot.dinosaurId ?? null,
       hp: snapshot?.vitals?.hp ?? null,
       addr: snapshot.addr ?? null,
       species: snapshot.species ?? null,
       growth: snapshot.growth ?? null
     };
 
-    this.store.save();
+    this.store.saveSnapshot?.(steam, this.store.data.lastSnapshots[steam]);
   }
 
   onPlayerKill(killerSteam) {
@@ -186,7 +188,7 @@ export class QuestEngine {
     state.progress = 0;
     state.completed = false;
     state.claimed = false;
-    this.store.save();
+    this.store.saveQuest?.(key);
 
     return { ok: true, questId, accepted: true };
   }
@@ -195,6 +197,7 @@ export class QuestEngine {
     const q = this.definitions.find((x) => x.id === questId);
     if (!q) return { ok: false, error: "quest-not-found" };
 
+    const key = `${steam}:${q.id}:${windowKey(q.period, new Date())}`;
     const state = this._entry(steam, q);
 
     if (state.accepted !== true) return { ok: false, error: "not-accepted" };
@@ -206,7 +209,7 @@ export class QuestEngine {
     const reward = Number(q.rewardTokens || 0);
     const old = Number(this.store.data.tokenBalances[steam] || 0);
     this.store.data.tokenBalances[steam] = old + reward;
-    this.store.save();
+    this.store.saveClaim?.(key, steam);
 
     return {
       ok: true,

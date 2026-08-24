@@ -5,6 +5,8 @@ tracking and claiming quests, and queuing commands for the UE4SS game mod.
 The bridge and game mod communicate through batched localhost HTTP, with the
 file protocol retained as an automatic fallback, as described in
 [PROTOCOL.md](./PROTOCOL.md).
+Persistent state can use PostgreSQL; installation and migration are documented
+in [POSTGRESQL_SETUP.md](./POSTGRESQL_SETUP.md).
 
 ## Connection
 
@@ -134,6 +136,7 @@ Response:
 | --- | --- | --- |
 | `ok` | boolean | Always `true` when the bridge answers. |
 | `players` | integer | Number of Steam IDs with a snapshot in bridge memory. |
+| `storage` | string | Active persistent-state backend: `json` or `postgres`. |
 | `gameTransport` | string | Configured command transport mode. |
 | `httpConnected` | boolean | Whether a game sync arrived in the last 15 seconds. |
 | `lastHttpSyncAt` | integer or null | Unix time in milliseconds of the latest HTTP game sync. |

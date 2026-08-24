@@ -71,7 +71,7 @@ test("returns the player's current dinosaur from the latest snapshot", () => {
 
   quests.onSnapshot({ steam: "player-1", ts: 123, species: "Omniraptor", growth: 0.25 });
   assert.deepEqual(quests.getCurrentDinosaur("player-1"), {
-    species: "Omniraptor", growth: 0.25, snapshotAt: 123
+    dinosaurId: null, species: "Omniraptor", growth: 0.25, snapshotAt: 123
   });
 });
 
@@ -101,4 +101,27 @@ test("requires the current dinosaur to reach the configured growth before accept
   assert.deepEqual(quests.accept("player-1", "grown-dino"), {
     ok: false, error: "already-accepted"
   });
+});
+
+test("persists only the records changed by quest operations", () => {
+  const calls = [];
+  const store = {
+    data: { questProgress: {}, tokenBalances: {}, lastSnapshots: {} },
+    saveQuest(key) { calls.push(["quest", key]); },
+    saveSnapshot(steam) { calls.push(["snapshot", steam]); },
+    saveClaim(key, steam) { calls.push(["claim", key, steam]); }
+  };
+  const quests = new QuestEngine([{
+    id: "kills-one", name: "Kill one", period: "daily", type: "player_kills",
+    target: 1, rewardTokens: 10
+  }], store);
+
+  quests.onSnapshot({ steam: "player-1", ts: 1, growth: 0.2 });
+  quests.accept("player-1", "kills-one");
+  quests.onPlayerKill("player-1");
+  quests.claim("player-1", "kills-one");
+
+  assert.equal(calls.filter(([type]) => type === "snapshot").length, 1);
+  assert.equal(calls.filter(([type]) => type === "quest").length, 2);
+  assert.equal(calls.filter(([type]) => type === "claim").length, 1);
 });

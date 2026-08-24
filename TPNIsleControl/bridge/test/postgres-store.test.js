@@ -1,0 +1,42 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { PostgresStore } from "../src/postgres-store.js";
+
+test("batches distinct dinosaur snapshots for the same player", async () => {
+  const queries = [];
+  const pool = {
+    query(sql, parameters) {
+      queries.push({ sql, parameters });
+      return Promise.resolve({ rows: [] });
+    }
+  };
+  const store = new PostgresStore(pool, 5000);
+
+  store.saveSnapshot("steam-1", { dinosaurId: "dino-a", ts: 1, species: "Omniraptor" });
+  store.saveSnapshot("steam-1", { dinosaurId: "dino-b", ts: 2, species: "Diabloceratops" });
+  await store.flushSnapshots();
+
+  assert.equal(queries.length, 1);
+  const rows = JSON.parse(queries[0].parameters[0]);
+  assert.deepEqual(rows.map(({ dinosaur_id }) => dinosaur_id), ["dino-a", "dino-b"]);
+  assert.match(queries[0].sql, /ON CONFLICT \(steam_id, dinosaur_id\)/);
+});
+
+test("uses the compatibility dinosaur slot when no stable ID is supplied", async () => {
+  let rows;
+  let statement;
+  const pool = {
+    query(sql, parameters) {
+      statement = sql;
+      rows = JSON.parse(parameters[0]);
+      return Promise.resolve({ rows: [] });
+    }
+  };
+  const store = new PostgresStore(pool, 5000);
+
+  store.saveSnapshot("steam-1", { ts: 1 });
+  await store.flushSnapshots();
+
+  assert.equal(rows[0].dinosaur_id, undefined);
+  assert.match(statement, /'legacy'/);
+});

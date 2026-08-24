@@ -36,6 +36,18 @@ export class JsonStore {
     this.write();
   }
 
+  saveSnapshot() {
+    this.save();
+  }
+
+  saveQuest() {
+    this.save();
+  }
+
+  saveClaim() {
+    this.save();
+  }
+
   write() {
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     const tmp = this.file + ".tmp";
@@ -54,4 +66,6 @@ export class JsonStore {
       if (this.batchDepth === 0 && this.dirty) this.write();
     }
   }
+
+  async close() {}
 }

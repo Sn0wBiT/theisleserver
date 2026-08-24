@@ -22,7 +22,8 @@ latency-sensitive consumers such as proximity VOIP and are not persisted.
 
 The bridge keeps live snapshots and pending commands in memory. Only aggregated
 quest progress, token balances, and minimal last-snapshot state are persisted.
-Multiple quest changes in one HTTP batch produce one atomic state-file write.
+PostgreSQL setup and JSON migration are documented in
+[POSTGRESQL_SETUP.md](./POSTGRESQL_SETUP.md).
 
 Commands are returned as NDJSON and are retained by the bridge until Lua sends
 their IDs in `acknowledgements`. Lua also deduplicates command IDs for one hour.
@@ -42,6 +43,7 @@ and automatic fallback while the game server is restarting.
   "type": "snapshot",
   "ts": 1777000000,
   "steam": "76561198000000000",
+  "dinosaurId": "persistent-character-id",
   "addr": "0x000001ABCDEF0000",
   "species": "BlueprintGeneratedClass /Game/...",
   "growth": 0.75,
@@ -60,6 +62,11 @@ and automatic fallback while the game server is restarting.
   }
 }
 ```
+
+`dinosaurId` is optional for compatibility, but it must be a stable identifier
+from the game or dinosaur-slot system to persist more than one dinosaur per
+player correctly. Snapshots without it use the single `legacy` slot. A pawn
+address is process-local and must not be used as a persistent dinosaur ID.
 
 ### Commands
 

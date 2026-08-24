@@ -4,6 +4,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { JsonStore } from "./store.js";
+import { PostgresStore } from "./postgres-store.js";
 import { QuestEngine } from "./quest-engine.js";
 import { formatQuestMessages } from "./quest-message.js";
 import { formatHelpMessage } from "./help-message.js";
@@ -27,7 +28,30 @@ const config = readJson(configPath);
 const quests = readJson(path.join(bridgeDir, "quests.json"));
 const aiDinosaurSpecies = new Set(readJson(path.join(bridgeDir, "ai-dinosaurs.json"))
   .map((species) => String(species).toLowerCase()));
-const store = new JsonStore(config.stateFile || path.join(bridgeDir, "data", "state.json"));
+const stateFile = config.stateFile || path.join(bridgeDir, "data", "state.json");
+const storage = String(config.storage || "json").toLowerCase();
+let store;
+
+if (storage === "postgres") {
+  const connectionString = process.env.TPNISLECONTROL_DATABASE_URL || config.databaseUrl;
+  if (!connectionString) {
+    console.error("PostgreSQL storage requires TPNISLECONTROL_DATABASE_URL or config.databaseUrl.");
+    process.exit(1);
+  }
+  store = await PostgresStore.connect({
+    connectionString,
+    poolSize: config.databasePoolSize,
+    snapshotFlushMs: config.snapshotFlushMs,
+    importStateFile: stateFile
+  });
+  console.log("[store] PostgreSQL connected");
+} else if (storage === "json") {
+  store = new JsonStore(stateFile);
+  console.log(`[store] JSON state: ${stateFile}`);
+} else {
+  console.error(`Unsupported storage backend: ${storage}`);
+  process.exit(1);
+}
 const questEngine = new QuestEngine(quests, store);
 
 const eventsPath = path.join(config.modSavedDir, "events.ndjson");
@@ -363,6 +387,7 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, {
       ok: true,
       players: livePlayers.size,
+      storage,
       gameTransport: config.gameTransport || "file",
       httpConnected: Date.now() - lastHttpSyncAt < 15000,
       lastHttpSyncAt: lastHttpSyncAt || null,
@@ -490,3 +515,23 @@ server.listen(Number(config.port || 31990), config.host || "127.0.0.1", () => {
     `[TPNIsleControl bridge] http://${config.host || "127.0.0.1"}:${port}`
   );
 });
+
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[shutdown] ${signal}; flushing persistent state`);
+  try {
+    await new Promise((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+    await store.close();
+    process.exit(0);
+  } catch (error) {
+    console.error("[shutdown] persistent-state flush failed", error);
+    process.exit(1);
+  }
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
