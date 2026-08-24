@@ -192,6 +192,23 @@ Quest definitions are loaded from `bridge/quests.json` when the bridge starts.
 Quest windows use UTC. Daily windows use `YYYY-MM-DD`, weekly windows use a
 Monday-based `YYYY-Www` key, and monthly windows use `YYYY-MM`.
 
+Missions are free to take by default. To require a minimum dinosaur growth,
+add `takeRequirement.minimumGrowth` to the definition. Growth uses the `0` to
+`1` snapshot scale, so `0.05`, `0.10`, `0.15`, and `0.20` mean 5%, 10%, 15%,
+and 20% respectively:
+
+```json
+{
+  "id": "daily_grown_dino",
+  "name": "Play with a grown dinosaur",
+  "period": "daily",
+  "type": "play_seconds",
+  "target": 600,
+  "rewardTokens": 50,
+  "takeRequirement": { "minimumGrowth": 0.15 }
+}
+```
+
 ### `GET /quests/{steam}`
 
 Returns the current quest state and token balance for a Steam ID. The path
@@ -217,6 +234,7 @@ Response:
       "target": 1800,
       "rewardTokens": 100,
       "window": "2026-08-22",
+      "canAccept": true,
       "accepted": true,
       "progress": 1800,
       "completed": true,
@@ -229,6 +247,7 @@ Response:
 | Quest state field | Type | Description |
 | --- | --- | --- |
 | `window` | string | Current UTC window key for the quest period. |
+| `canAccept` | boolean | Whether the latest player dinosaur snapshot meets the mission's take requirement. |
 | `accepted` | boolean | Whether the player has accepted the quest. Only accepted quests receive progress. |
 | `progress` | number | Accumulated or highest observed value. |
 | `completed` | boolean | Whether progress reached the configured target. |
@@ -247,7 +266,9 @@ curl -X POST -H "Authorization: Bearer $API_TOKEN" \
   "$BASE_URL/quests/$STEAM_ID/accept/daily_play_30"
 ```
 
-Failures return `quest-not-found` or `already-accepted`.
+Failures return `quest-not-found`, `already-accepted`, or
+`growth-requirement-not-met`. The growth failure also returns `requiredGrowth`
+and `currentGrowth` (`null` until a dinosaur snapshot is available).
 
 ### `POST /quests/{steam}/claim/{questId}`
 

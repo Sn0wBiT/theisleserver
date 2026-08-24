@@ -207,6 +207,8 @@ function processQuestAccept(e) {
     ? `Đã nhận nhiệm vụ: ${questId}. Tiến độ hiện bắt đầu được theo dõi.`
     : result.error === "already-accepted"
       ? `Nhiệm vụ ${questId} đã được nhận.`
+      : result.error === "growth-requirement-not-met"
+        ? `Không thể nhận nhiệm vụ ${questId}: cần khủng long đạt ${result.requiredGrowth * 100}% tăng trưởng (hiện tại ${result.currentGrowth === null ? "không xác định" : `${Math.floor(result.currentGrowth * 100)}%`}).`
       : `Không thể nhận nhiệm vụ ${questId}: ${result.error}`;
   appendCommand({ verb: "notify", steam, args: { message } });
 }
@@ -396,6 +398,7 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, {
       steam,
       tokenBalance: Number(store.data.tokenBalances[steam] || 0),
+      currentDinosaur: questEngine.getCurrentDinosaur(steam),
       quests: questEngine.getPlayerState(steam)
     });
   }

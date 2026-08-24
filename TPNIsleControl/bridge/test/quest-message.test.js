@@ -57,6 +57,16 @@ test("shows an acceptance instruction for an unaccepted quest", () => {
   assert.match(message, /\[daily_play_30\].+\/accept daily_play_30/);
 });
 
+test("shows the dinosaur growth needed to take a locked quest", () => {
+  const message = formatQuestMessage([{
+    id: "grown-dino", name: "Grown dinosaur", period: "daily", type: "player_kills",
+    target: 1, progress: 0, accepted: false, canAccept: false,
+    takeRequirement: { minimumGrowth: 0.15 }
+  }], 0);
+  assert.match(message, /cần tăng trưởng 15%/);
+  assert.doesNotMatch(message, /\/accept grown-dino/);
+});
+
 test("splits long quest lists on quest boundaries", () => {
   const messages = formatQuestMessages(Array.from({ length: 4 }, (_, index) => ({
     id: `quest_${index}`, name: `Quest ${index}`, period: "daily", type: "player_kills",

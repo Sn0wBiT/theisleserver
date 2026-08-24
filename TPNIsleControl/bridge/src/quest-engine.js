@@ -29,6 +29,7 @@ export class QuestEngine {
 
   getPlayerState(steam) {
     const now = new Date();
+    const currentGrowth = Number(this.store.data.lastSnapshots[steam]?.growth);
 
     return this.definitions.map((q) => {
       const key = `${steam}:${q.id}:${windowKey(q.period, now)}`;
@@ -42,12 +43,35 @@ export class QuestEngine {
       return {
         ...q,
         window: windowKey(q.period, now),
+        canAccept: this._meetsTakeRequirement(q, currentGrowth),
         accepted: state.accepted === true,
         progress: state.progress,
         completed: state.completed,
         claimed: state.claimed
       };
     });
+  }
+
+  getCurrentDinosaur(steam) {
+    const snapshot = this.store.data.lastSnapshots[steam];
+    if (!snapshot) return null;
+
+    const growth = Number(snapshot.growth);
+    return {
+      species: snapshot.species || null,
+      growth: Number.isFinite(growth) ? growth : null,
+      snapshotAt: Number(snapshot.ts) || null
+    };
+  }
+
+  _minimumGrowth(q) {
+    const minimumGrowth = Number(q?.takeRequirement?.minimumGrowth ?? 0);
+    return Number.isFinite(minimumGrowth) ? Math.min(1, Math.max(0, minimumGrowth)) : 0;
+  }
+
+  _meetsTakeRequirement(q, growth) {
+    const minimumGrowth = this._minimumGrowth(q);
+    return minimumGrowth === 0 || (Number.isFinite(growth) && growth >= minimumGrowth);
   }
 
   _entry(steam, q) {
@@ -113,6 +137,7 @@ export class QuestEngine {
       ts,
       hp: snapshot?.vitals?.hp ?? null,
       addr: snapshot.addr ?? null,
+      species: snapshot.species ?? null,
       growth: snapshot.growth ?? null
     };
 
@@ -137,8 +162,23 @@ export class QuestEngine {
     const q = this.definitions.find((x) => x.id === questId);
     if (!q) return { ok: false, error: "quest-not-found" };
 
+    const key = `${steam}:${q.id}:${windowKey(q.period, new Date())}`;
+    if (this.store.data.questProgress[key]?.accepted === true) {
+      return { ok: false, error: "already-accepted" };
+    }
+
+    const minimumGrowth = this._minimumGrowth(q);
+    const currentGrowth = Number(this.store.data.lastSnapshots[steam]?.growth);
+    if (!this._meetsTakeRequirement(q, currentGrowth)) {
+      return {
+        ok: false,
+        error: "growth-requirement-not-met",
+        requiredGrowth: minimumGrowth,
+        currentGrowth: Number.isFinite(currentGrowth) ? currentGrowth : null
+      };
+    }
+
     const state = this._entry(steam, q);
-    if (state.accepted === true) return { ok: false, error: "already-accepted" };
 
     // Do not carry forward any progress written by versions that predate
     // opt-in quests. Progress begins only after the player accepts it.

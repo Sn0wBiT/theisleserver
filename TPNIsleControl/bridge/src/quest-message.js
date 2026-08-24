@@ -27,7 +27,13 @@ function progressText(quest) {
 }
 
 function statusText(quest) {
-  if (quest.accepted === false) return ` (chưa nhận: /accept ${quest.id})`;
+  if (quest.accepted === false) {
+    const minimumGrowth = finiteNumber(quest?.takeRequirement?.minimumGrowth);
+    if (minimumGrowth > 0 && quest.canAccept === false) {
+      return ` (cần tăng trưởng ${compactNumber(minimumGrowth * 100)}%)`;
+    }
+    return ` (chưa nhận: /accept ${quest.id})`;
+  }
   if (quest.claimed) return " (đã nhận)";
   if (quest.completed) return " (đã hoàn thành)";
   return "";
