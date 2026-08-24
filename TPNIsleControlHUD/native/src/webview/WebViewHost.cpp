@@ -3,6 +3,7 @@
 #include "include/cef_browser.h"
 #include "include/cef_app.h"
 #include "include/cef_client.h"
+#include "include/cef_context_menu_handler.h"
 #include "include/cef_life_span_handler.h"
 #include "include/cef_load_handler.h"
 #include "include/cef_parser.h"
@@ -27,6 +28,7 @@
 namespace {
 constexpr char kNativeMessageName[] = "tpn.native.message";
 constexpr UINT_PTR kBrowserSubclassId = 0x54504e43;
+constexpr int kInspectElementCommand = MENU_ID_USER_FIRST;
 
 std::wstring MimeTypeFor(const std::filesystem::path& path) {
     const std::wstring extension = path.extension().wstring();
@@ -95,12 +97,14 @@ uint32_t CefModifiers(WPARAM wParam) {
 
 struct WebViewHost::Impl {
     class Client final : public CefClient,
+                         public CefContextMenuHandler,
                          public CefLifeSpanHandler,
                          public CefLoadHandler,
                          public CefRenderHandler {
     public:
         explicit Client(Impl* impl) : impl_(impl) {}
 
+        CefRefPtr<CefContextMenuHandler> GetContextMenuHandler() override { return this; }
         CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
         CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
         CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
@@ -138,6 +142,24 @@ struct WebViewHost::Impl {
             return true;
         }
 
+        void OnBeforeContextMenu(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
+                                 CefRefPtr<CefContextMenuParams>, CefRefPtr<CefMenuModel> model) override {
+            if (!impl_->enableDevTools) {
+                model->Clear();
+                return;
+            }
+            if (model->GetCount() > 0) model->AddSeparator();
+            model->AddItem(kInspectElementCommand, L"Inspect element");
+        }
+
+        bool OnContextMenuCommand(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
+                                  CefRefPtr<CefContextMenuParams> params, int commandId,
+                                  EventFlags) override {
+            if (!impl_->enableDevTools || commandId != kInspectElementCommand) return false;
+            impl_->ShowDevTools(CefPoint(params->GetXCoord(), params->GetYCoord()));
+            return true;
+        }
+
         void GetViewRect(CefRefPtr<CefBrowser>, CefRect& rect) override {
             RECT clientRect{};
             GetClientRect(impl_->parent, &clientRect);
@@ -171,6 +193,14 @@ struct WebViewHost::Impl {
     }
 
     void HandleMessage(const std::wstring& json) const { owner->HandleMessage(json); }
+
+    void ShowDevTools(const CefPoint& inspectPoint = CefPoint()) {
+        if (!enableDevTools || !browser) return;
+        CefWindowInfo windowInfo;
+        CefBrowserSettings settings;
+        browser->GetHost()->ShowDevTools(windowInfo, nullptr, settings, inspectPoint);
+        Status(L"CEF DevTools opened");
+    }
 
     void ReleaseSurface() {
         if (memoryDc && oldBitmap) SelectObject(memoryDc, oldBitmap);
@@ -297,6 +327,12 @@ struct WebViewHost::Impl {
             self->SendMouse(message, wParam, lParam);
             break;
         case WM_KEYDOWN:
+            if (wParam == VK_F12 && self->enableDevTools) {
+                self->ShowDevTools();
+                return 0;
+            }
+            self->SendKey(message, wParam, lParam);
+            break;
         case WM_KEYUP:
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
@@ -322,6 +358,7 @@ struct WebViewHost::Impl {
     int surfaceHeight{0};
     RECT lastBounds{};
     bool boundsLogged{false};
+    bool enableDevTools{false};
     bool visible{false};
     bool closed{true};
 };
@@ -333,6 +370,7 @@ bool WebViewHost::Initialize(HWND parent, bool development, const std::wstring& 
                              const std::filesystem::path& uiFolder, bool enableDevTools,
                              const std::wstring& apiOrigin, CommandHandler handler, StatusHandler statusHandler) {
     impl_->parent = parent;
+    impl_->enableDevTools = enableDevTools;
     development_ = development;
     apiOrigin_ = apiOrigin;
     commandHandler_ = std::move(handler);
@@ -359,7 +397,7 @@ bool WebViewHost::Initialize(HWND parent, bool development, const std::wstring& 
     settings.windowless_frame_rate = 60;
     settings.chrome_status_bubble = STATE_DISABLED;
 
-    const CefString url = development ? CefString(devUrl) : CefString(L"https://app.tpn.local/index.html");
+    const CefString url = development ? CefString(devUrl) : CefString(L"http://dino.tpnrp.local/index.html");
     const bool started = CefBrowserHost::CreateBrowser(windowInfo, impl_->client, url, settings, nullptr, nullptr);
     if (!started) {
         RemoveWindowSubclass(parent, Impl::SubclassProc, kBrowserSubclassId);

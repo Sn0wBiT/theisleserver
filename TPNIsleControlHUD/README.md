@@ -50,6 +50,7 @@ The result contains `TPNIsleControlHUD.exe`, `config.json`, and the production f
 ## Controls
 
 - `F6` toggles HUD and interactive modes (configurable to another F-key).
+- `F12` opens CEF DevTools when `enableDevTools` is enabled. In interactive mode, right-click an element and choose **Inspect element** to inspect it directly.
 - `Escape` closes the interactive quest panel.
 - HUD mode is click-through; interactive mode accepts mouse input.
 
@@ -62,3 +63,4 @@ Native settings live in `config.json`. The frontend API origin is the build-time
 CEF uses windowless/off-screen rendering with a fully transparent browser background. Each premultiplied BGRA frame is composited into the topmost layered Win32 popup with `UpdateLayeredWindow`, preserving per-pixel alpha instead of relying on a color key. Native mouse, wheel, focus, and keyboard messages are forwarded to CEF while interactive mode is active. Production assets remain available at `https://app.tpn.local`, and the host emulates the existing `window.chrome.webview` message contract so the frontend bridge remains unchanged.
 
 CEF browser data and logs are stored under `%LOCALAPPDATA%\TPNIsleControlHUD\CEF` (with an executable-directory fallback when `LOCALAPPDATA` is unavailable).
+JavaScript `console` output is available on the DevTools **Console** tab. Set `enableDevTools` to `false` in `config.json` for production builds to disable F12, element inspection, and the browser context menu.
