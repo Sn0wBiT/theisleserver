@@ -1,6 +1,41 @@
 #include "overlay/OverlayWindow.hpp"
 
-namespace { constexpr wchar_t kOverlayClass[] = L"TPNIsleControlHUDOverlay"; }
+namespace {
+constexpr wchar_t kOverlayClass[] = L"TPNIsleControlHUDOverlay";
+
+bool InitializeTransparentSurface(HWND window) {
+    BITMAPINFO info{};
+    info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    info.bmiHeader.biWidth = 1;
+    info.bmiHeader.biHeight = -1;
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+
+    HDC screen = GetDC(nullptr);
+    HDC memory = CreateCompatibleDC(screen);
+    void* pixels = nullptr;
+    HBITMAP bitmap = CreateDIBSection(memory, &info, DIB_RGB_COLORS, &pixels, nullptr, 0);
+    if (!screen || !memory || !bitmap || !pixels) {
+        if (bitmap) DeleteObject(bitmap);
+        if (memory) DeleteDC(memory);
+        if (screen) ReleaseDC(nullptr, screen);
+        return false;
+    }
+
+    *static_cast<unsigned int*>(pixels) = 0;
+    HGDIOBJ oldBitmap = SelectObject(memory, bitmap);
+    POINT source{};
+    SIZE size{1, 1};
+    BLENDFUNCTION blend{AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+    const BOOL result = UpdateLayeredWindow(window, screen, nullptr, &size, memory, &source, 0, &blend, ULW_ALPHA);
+    SelectObject(memory, oldBitmap);
+    DeleteObject(bitmap);
+    DeleteDC(memory);
+    ReleaseDC(nullptr, screen);
+    return result != FALSE;
+}
+}
 
 bool OverlayWindow::Create(HINSTANCE instance) {
     WNDCLASSEXW windowClass{sizeof(windowClass)};
@@ -12,7 +47,7 @@ bool OverlayWindow::Create(HINSTANCE instance) {
     hwnd_ = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
         kOverlayClass, L"TPN Isle Control HUD", WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, instance, this);
     if (!hwnd_) return false;
-    if (!SetLayeredWindowAttributes(hwnd_, RGB(255, 0, 255), 255, LWA_COLORKEY | LWA_ALPHA)) {
+    if (!InitializeTransparentSurface(hwnd_)) {
         DestroyWindow(hwnd_);
         hwnd_ = nullptr;
         return false;

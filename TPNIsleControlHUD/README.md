@@ -1,10 +1,10 @@
 # TPN Isle Control HUD
 
-External Win32/WebView2 overlay for The Isle: EVRIMA. Version 0.1 provides the Quests HUD only and remains a separate process: it does not inject into, hook, patch, or read memory from the game.
+External Win32/CEF (Chromium Embedded Framework) overlay for The Isle: EVRIMA. Version 0.1 provides the Quests HUD only and remains a separate process: it does not inject into, hook, patch, or read memory from the game.
 
 ## Prerequisites
 
-- Windows 10/11 and Microsoft Edge WebView2 Evergreen Runtime
+- Windows 10/11
 - Visual Studio 2022 with Desktop development with C++
 - CMake 3.24+
 - Node.js 20+ and npm
@@ -23,7 +23,7 @@ Copy `config/config.example.json` beside the executable as `config.json`, then s
 
 Set `apiUrl` in `frontend/src/services/api.ts` to the public origin of the `tpn-dino` Next.js app, then rebuild the frontend. The HUD only calls its authenticated API routes. The Next.js server derives the Steam ID from the player session and keeps the bridge URL and administrative token server-side.
 
-Set `HUD_ORIGIN` on the Next.js deployment to the WebView origin (default `https://app.tpn.local`; use `http://localhost:5173` during Vite development) so its quest API allows only the intended HUD origin. Authentication may use the existing signed session cookie or a future short-lived player bearer token; bridge/admin tokens are never accepted by the HUD.
+Set `HUD_ORIGIN` on the Next.js deployment to the embedded browser origin (default `https://app.tpn.local`; use `http://localhost:5173` during Vite development) so its quest API allows only the intended HUD origin. Authentication may use the existing signed session cookie or a future short-lived player bearer token; bridge/admin tokens are never accepted by the HUD.
 
 ## Native build
 
@@ -34,7 +34,7 @@ cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
-CMake downloads the Microsoft WebView2 SDK NuGet package at configure time. The Evergreen Runtime itself is not bundled; startup shows a clear error when it is missing.
+CMake downloads the pinned 64-bit CEF standard distribution at configure time and builds its C++ wrapper. Expect the first configure to download a few hundred megabytes. CEF's Chromium runtime, resources, locales, and license are copied beside the executable and included by `cmake --install`; no separately installed browser runtime is required.
 
 ## Release layout
 
@@ -59,4 +59,6 @@ The overlay tracks the client rectangle of `TheIsle-Win64-Shipping.exe` or `TheI
 
 Native settings live in `config.json`. The frontend API origin is the build-time `apiUrl` constant in `frontend/src/services/api.ts`; changing it requires rebuilding the frontend. Never place an administrative API token in frontend or native configuration source.
 
-WebView2 uses a windowed controller with a fully transparent default background, hosted by a topmost layered Win32 popup. This keeps the v0.1 implementation small while preserving the external-process boundary; a composition controller can replace it later if testing identifies GPU/driver-specific windowed-controller artifacts.
+CEF uses windowless/off-screen rendering with a fully transparent browser background. Each premultiplied BGRA frame is composited into the topmost layered Win32 popup with `UpdateLayeredWindow`, preserving per-pixel alpha instead of relying on a color key. Native mouse, wheel, focus, and keyboard messages are forwarded to CEF while interactive mode is active. Production assets remain available at `https://app.tpn.local`, and the host emulates the existing `window.chrome.webview` message contract so the frontend bridge remains unchanged.
+
+CEF browser data and logs are stored under `%LOCALAPPDATA%\TPNIsleControlHUD\CEF` (with an executable-directory fallback when `LOCALAPPDATA` is unavailable).

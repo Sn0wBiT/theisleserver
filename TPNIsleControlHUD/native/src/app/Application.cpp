@@ -1,5 +1,7 @@
 #include "app/Application.hpp"
 
+#include "include/cef_app.h"
+
 #include <cstdint>
 #include <fstream>
 #include <sstream>
@@ -8,6 +10,8 @@ namespace {
 constexpr UINT kTrayCallbackMessage = WM_APP + 1;
 constexpr UINT kReconnectCommand = 1;
 constexpr UINT kExitCommand = 2;
+constexpr UINT_PTR kTrackerTimer = 1;
+constexpr UINT_PTR kCefPumpTimer = 2;
 
 std::filesystem::path ExecutableDirectory() {
     std::wstring path(32768, L'\0');
@@ -31,11 +35,13 @@ int Application::Run() {
             const UINT action = LOWORD(message.lParam);
             if (action == WM_CONTEXTMENU || action == WM_RBUTTONDOWN || action == WM_RBUTTONUP) ShowTrayMenu();
             else if (action == WM_LBUTTONDBLCLK) Reconnect();
-        } else if (message.message == WM_TIMER && message.hwnd == overlay_.GetHandle()) {
+        } else if (message.message == WM_TIMER && message.hwnd == overlay_.GetHandle() &&
+                   message.wParam == kTrackerTimer) {
             Tick();
         }
         TranslateMessage(&message);
         DispatchMessageW(&message);
+        CefDoMessageLoopWork();
     }
     Shutdown();
     return static_cast<int>(message.wParam);
@@ -47,19 +53,18 @@ bool Application::Initialize() {
     if (!overlay_.Create(instance_)) { Log(L"overlay creation failed"); return false; }
     Log(L"overlay created");
     if (!input_.Register(overlay_.GetHandle(), config_.overlayHotkey)) Log(L"hotkey registration failed");
-    SetEnvironmentVariableW(L"COREWEBVIEW2_FORCED_HOSTING_MODE", L"COREWEBVIEW2_HOSTING_MODE_WINDOW_TO_VISUAL");
-    SetEnvironmentVariableW(L"WEBVIEW2_DEFAULT_BACKGROUND_COLOR", L"FFFF00FF");
-    Log(L"WebView2 hosting mode: window-to-visual; diagnostic background: magenta");
+    Log(L"CEF hosting mode: windowless OSR with per-pixel alpha");
     if (!webview_.Initialize(overlay_.GetHandle(), config_.development, config_.frontendDevUrl,
         executableDirectory_ / L"ui", config_.enableDevTools, config_.apiOrigin,
         [this](const std::wstring& type, bool value) { HandleWebCommand(type, value); },
         [this](const std::wstring& message) { Log(message.c_str()); })) {
-        Log(L"WebView2 initialization failed");
+        Log(L"CEF initialization failed");
         return false;
     }
-    Log(L"WebView2 initialization started");
+    Log(L"CEF initialization started");
     AddTrayIcon();
-    SetTimer(overlay_.GetHandle(), 1, 100, nullptr);
+    SetTimer(overlay_.GetHandle(), kTrackerTimer, 100, nullptr);
+    SetTimer(overlay_.GetHandle(), kCefPumpTimer, 10, nullptr);
     Tick();
     return true;
 }
@@ -179,7 +184,8 @@ void Application::Reconnect() {
 
 void Application::Shutdown() {
     Log(L"shutdown");
-    KillTimer(overlay_.GetHandle(), 1);
+    KillTimer(overlay_.GetHandle(), kTrackerTimer);
+    KillTimer(overlay_.GetHandle(), kCefPumpTimer);
     input_.Unregister(overlay_.GetHandle());
     RemoveTrayIcon();
     webview_.Close();

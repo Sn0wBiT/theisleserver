@@ -4,25 +4,30 @@ if(NOT WIN32)
 endif()
 
 include(FetchContent)
-set(WEBVIEW2_VERSION "1.0.3967.48" CACHE STRING "Microsoft.Web.WebView2 SDK version")
-FetchContent_Declare(webview2
-  URL "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/${WEBVIEW2_VERSION}"
+set(CEF_VERSION "151.3.17+gf059e67+chromium-151.0.7922.138" CACHE STRING "CEF binary distribution version")
+set(CEF_PLATFORM "windows64")
+set(CEF_ARCHIVE_NAME "cef_binary_${CEF_VERSION}_${CEF_PLATFORM}")
+FetchContent_Declare(cef
+  URL "https://cef-builds.spotifycdn.com/${CEF_ARCHIVE_NAME}.tar.bz2"
+  SOURCE_SUBDIR "_populate_only"
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-FetchContent_MakeAvailable(webview2)
+FetchContent_MakeAvailable(cef)
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
-    set(WEBVIEW2_ARCH arm64)
-  else()
-    set(WEBVIEW2_ARCH x64)
-  endif()
+if(EXISTS "${cef_SOURCE_DIR}/${CEF_ARCHIVE_NAME}/CMakeLists.txt")
+  set(CEF_ROOT "${cef_SOURCE_DIR}/${CEF_ARCHIVE_NAME}")
 else()
-  set(WEBVIEW2_ARCH x86)
+  set(CEF_ROOT "${cef_SOURCE_DIR}")
 endif()
+set(USE_SANDBOX OFF CACHE BOOL "Disable the CEF sandbox for the single-executable build" FORCE)
+list(APPEND CMAKE_MODULE_PATH "${CEF_ROOT}/cmake")
+find_package(CEF REQUIRED)
+add_subdirectory("${CEF_LIBCEF_DLL_WRAPPER_PATH}" "${CMAKE_BINARY_DIR}/libcef_dll_wrapper")
+ADD_LOGICAL_TARGET("libcef_lib" "${CEF_LIB_DEBUG}" "${CEF_LIB_RELEASE}")
 
 add_executable(TPNIsleControlHUD WIN32
   src/main.cpp
   src/app/Application.cpp
+  src/cef/CefApplication.cpp
   src/config/Config.cpp
   src/overlay/GameWindowTracker.cpp
   src/overlay/InputManager.cpp
@@ -33,16 +38,33 @@ target_compile_features(TPNIsleControlHUD PRIVATE cxx_std_20)
 target_compile_definitions(TPNIsleControlHUD PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
 target_include_directories(TPNIsleControlHUD PRIVATE
   src
-  "${webview2_SOURCE_DIR}/build/native/include")
+  "${CEF_INCLUDE_PATH}")
+SET_EXECUTABLE_TARGET_PROPERTIES(TPNIsleControlHUD)
 target_link_libraries(TPNIsleControlHUD PRIVATE
-  "${webview2_SOURCE_DIR}/build/native/${WEBVIEW2_ARCH}/WebView2LoaderStatic.lib"
-  user32 shell32 ole32 shlwapi version)
+  libcef_lib
+  libcef_dll_wrapper
+  ${CEF_STANDARD_LIBS}
+  user32 shell32 ole32 comctl32 version)
+
+COPY_FILES(TPNIsleControlHUD "${CEF_BINARY_FILES}" "${CEF_BINARY_DIR}" "$<TARGET_FILE_DIR:TPNIsleControlHUD>")
+COPY_FILES(TPNIsleControlHUD "${CEF_RESOURCE_FILES}" "${CEF_RESOURCE_DIR}" "$<TARGET_FILE_DIR:TPNIsleControlHUD>")
 
 if(MSVC)
   target_compile_options(TPNIsleControlHUD PRIVATE /W4 /permissive- /EHsc)
 endif()
 
 install(TARGETS TPNIsleControlHUD RUNTIME DESTINATION .)
+foreach(CEF_BINARY_FILE IN LISTS CEF_BINARY_FILES)
+  install(FILES "${CEF_BINARY_DIR_RELEASE}/${CEF_BINARY_FILE}" DESTINATION .)
+endforeach()
+foreach(CEF_RESOURCE_FILE IN LISTS CEF_RESOURCE_FILES)
+  if(IS_DIRECTORY "${CEF_RESOURCE_DIR}/${CEF_RESOURCE_FILE}")
+    install(DIRECTORY "${CEF_RESOURCE_DIR}/${CEF_RESOURCE_FILE}" DESTINATION .)
+  else()
+    install(FILES "${CEF_RESOURCE_DIR}/${CEF_RESOURCE_FILE}" DESTINATION .)
+  endif()
+endforeach()
+install(FILES "${CEF_ROOT}/LICENSE.txt" DESTINATION . RENAME CEF_LICENSE.txt)
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../frontend/dist/" DESTINATION ui OPTIONAL)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../config/config.example.json" DESTINATION . RENAME config.json)
 
