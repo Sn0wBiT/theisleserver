@@ -35,7 +35,7 @@
 }
 
 :root, html, body, #root { width: 100%; height: 100%; background: transparent !important; }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; user-select: none; }
 body { margin: 0; overflow: hidden; color: var(--color-bone); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 button { font: inherit; }
 
@@ -46,6 +46,45 @@ button { font: inherit; }
 .hud-scrollbar::-webkit-scrollbar { width: 5px; }
 .hud-scrollbar::-webkit-scrollbar-thumb { background: var(--color-stone); }
 .hud-toast { border: 1px solid rgb(154 168 106 / 0.55) !important; background: rgb(23 26 22 / 0.96) !important; color: var(--color-bone) !important; }
+
+.compact-minimap { position: absolute; left: 24px; top: 24px; width: clamp(210px, 18vw, 280px); aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid rgb(107 184 163 / .72); border-radius: 2px; background: rgb(5 29 25 / .94); color: var(--color-bone); box-shadow: var(--shadow-hud); text-align: left; }
+.compact-minimap--circle { border-radius: 50%; }
+.compact-minimap--interactive { cursor: pointer; transition: border-color 120ms ease, transform 120ms ease; }
+.compact-minimap--interactive:hover { border-color: var(--color-amber); transform: translateY(-1px); }
+.minimap-canvas { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; background: #091511; }
+.minimap-canvas::after, .expanded-minimap__canvas::after { content: ""; position: absolute; inset: 0; z-index: 500; pointer-events: none; box-shadow: inset 0 0 28px rgb(0 0 0 / .48); }
+.minimap-coordinates { position: absolute; z-index: 600; left: 50%; bottom: 8px; translate: -50% 0; width: max-content; padding: 5px 8px; border: 1px solid rgb(107 184 163 / .3); background: rgb(5 29 25 / .8); color: var(--color-bone); font: 9px/1 var(--font-mono); letter-spacing: .06em; }
+.minimap-status-overlay { position: absolute; z-index: 600; top: 8px; right: 8px; padding: 5px 7px; border: 1px solid rgb(107 184 163 / .3); background: rgb(5 29 25 / .8); }
+.minimap-status-overlay .minimap-status { margin: 0; }
+.minimap-empty { display: grid; width: 100%; height: 100%; place-items: center; padding: 24px; color: var(--color-ash); font: 11px/1.5 var(--font-mono); text-align: center; text-transform: uppercase; }
+.minimap-status { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--color-ash); font: 8px/1 var(--font-mono); letter-spacing: .05em; }
+.minimap-status i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.minimap-status--connected { color: var(--color-moss); }
+.minimap-status--connected i { box-shadow: 0 0 8px currentColor; }
+.minimap-status--stale, .minimap-status--reconnecting { color: var(--color-amber); }
+.minimap-status--unauthorized, .minimap-status--unavailable { color: var(--color-rust); }
+.player-marker-shell { background: transparent; border: 0; }
+.player-marker { position: absolute; inset: 6px; border: 2px solid #fff4bd; border-radius: 50%; background: var(--color-amber); box-shadow: 0 0 0 2px rgb(5 29 25 / .9), 0 0 12px #d6c36b; }
+.player-marker::after { content: ""; position: absolute; inset: -7px; border: 1px solid rgb(214 195 107 / .65); border-radius: 50%; animation: marker-pulse 1.8s ease-out infinite; }
+@keyframes marker-pulse { from { opacity: .9; transform: scale(.55); } to { opacity: 0; transform: scale(1.45); } }
+.expanded-minimap { position: relative; width: min(960px, calc(100vw - 32px)); height: min(75vh, 760px); overflow: hidden; border: 1px solid var(--color-border-default); box-shadow: var(--shadow-hud-heavy); }
+.expanded-minimap__header { height: 66px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px 0 19px; border-bottom: 1px solid var(--color-border-subtle); }
+.expanded-minimap__header h1 { margin: 2px 0 0; color: var(--color-bone); font: 600 18px/1 var(--font-mono); letter-spacing: .18em; }
+.minimap-frame-control { display: flex; height: 28px; border: 1px solid var(--color-border-subtle); background: var(--color-control-default); }
+.minimap-frame-control button { display: flex; align-items: center; gap: 5px; padding: 0 8px; border: 0; background: transparent; color: var(--color-ash); font: 8px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.minimap-frame-control button + button { border-left: 1px solid var(--color-border-subtle); }
+.minimap-frame-control button:hover { color: var(--color-bone); }
+.minimap-frame-control button.is-active { background: var(--color-control-hover); color: var(--color-amber); }
+.minimap-frame-control svg { width: 12px; height: 12px; }
+.eyebrow { color: var(--color-ash); font: 8px/1 var(--font-mono); letter-spacing: .16em; text-transform: uppercase; }
+.expanded-minimap__canvas { position: absolute; inset: 66px 0 35px; background: #091511; }
+.expanded-minimap__footer { position: absolute; inset: auto 0 0; height: 35px; display: flex; align-items: center; gap: 22px; padding: 0 13px; border-top: 1px solid var(--color-border-subtle); color: var(--color-ash); font: 8px/1 var(--font-mono); letter-spacing: .08em; }
+.expanded-minimap__footer .minimap-status { margin-left: 0; }
+.expanded-minimap__footer > :last-child { margin-left: auto; }
+.leaflet-container { background: #091511; font-family: var(--font-sans); }
+.leaflet-control-attribution { background: rgb(5 29 25 / .82) !important; color: var(--color-ash); }
+.leaflet-control-attribution a { color: var(--color-lichen); }
+.leaflet-bar a { border-color: var(--color-border-subtle) !important; background: var(--color-bg-panel) !important; color: var(--color-bone) !important; }
 
 @media (max-height: 650px) {
   .hud-panel { max-height: calc(100vh - 24px); }

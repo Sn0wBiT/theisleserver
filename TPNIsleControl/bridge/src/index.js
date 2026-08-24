@@ -63,6 +63,7 @@ fs.mkdirSync(config.modSavedDir, { recursive: true });
 
 const cursors = new Map();
 const livePlayers = new Map(); // steam -> latest snapshot
+const positionSubscribers = new Map(); // steam -> Set<ServerResponse>
 const addrToSteam = new Map(); // pawn address -> steam
 const recentDamage = new Map(); // victim address -> { attackerAddr, ts }
 const recentAiDeaths = new Map(); // AI address -> death timestamp
@@ -165,11 +166,52 @@ function processPosition(update) {
   const z = Number(update?.pos?.z);
   if (!steam || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return;
 
+  const updatedAt = Date.now();
   livePlayers.set(steam, {
     ...(livePlayers.get(steam) || { steam }),
     pos: { x, y, z },
-    positionUpdatedAt: Date.now()
+    positionUpdatedAt: updatedAt
   });
+
+  publishPosition(steam, { x, y, z }, updatedAt);
+}
+
+function positionEvent(steamId, position, updatedAt) {
+  return `event: position\ndata: ${JSON.stringify({ steamId, position, updatedAt })}\n\n`;
+}
+
+function publishPosition(steamId, position, updatedAt) {
+  for (const response of positionSubscribers.get(steamId) || []) {
+    response.write(positionEvent(steamId, position, updatedAt));
+  }
+}
+
+function streamPosition(req, res, steamId) {
+  res.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache, no-store, must-revalidate",
+    connection: "keep-alive",
+    "x-accel-buffering": "no"
+  });
+  res.flushHeaders();
+
+  const subscribers = positionSubscribers.get(steamId) || new Set();
+  subscribers.add(res);
+  positionSubscribers.set(steamId, subscribers);
+
+  const current = livePlayers.get(steamId);
+  if (current?.pos && current.positionUpdatedAt) {
+    res.write(positionEvent(steamId, current.pos, current.positionUpdatedAt));
+  }
+
+  const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
+  const cleanup = () => {
+    clearInterval(heartbeat);
+    subscribers.delete(res);
+    if (subscribers.size === 0) positionSubscribers.delete(steamId);
+  };
+  req.once("close", cleanup);
+  res.once("close", cleanup);
 }
 
 function processNativeEvent(e) {
@@ -392,7 +434,8 @@ const server = http.createServer(async (req, res) => {
       httpConnected: Date.now() - lastHttpSyncAt < 15000,
       lastHttpSyncAt: lastHttpSyncAt || null,
       eventsPath,
-      nativeEventsPath
+      nativeEventsPath,
+      positionStreamSubscribers: [...positionSubscribers.values()].reduce((sum, subscribers) => sum + subscribers.size, 0)
     });
   }
 
@@ -433,6 +476,16 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, {
       players: [...livePlayers.values()]
     });
+  }
+
+  const positionStream = url.pathname.match(/^\/players\/([^/]+)\/position\/stream$/);
+  if (req.method === "GET" && positionStream) {
+    const steamId = decodeURIComponent(positionStream[1]);
+    if (!/^\d{17}$/.test(steamId)) {
+      return send(res, 400, { ok: false, error: "invalid-steam-id" });
+    }
+    streamPosition(req, res, steamId);
+    return;
   }
 
   const questGet = url.pathname.match(/^\/quests\/([^/]+)$/);

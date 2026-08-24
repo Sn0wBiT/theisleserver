@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type Panel = "none" | "quests" | "profile" | "voice" | "settings";
+export type Panel = "none" | "quests" | "minimap" | "profile" | "voice" | "settings";
 
 type OverlayState = {
   interactive: boolean;
@@ -25,4 +25,3 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   openPanel: (panel) => set({ panel }),
   closePanel: () => set({ panel: "none" }),
 }));
-

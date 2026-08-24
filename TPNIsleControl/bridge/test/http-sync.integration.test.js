@@ -141,3 +141,75 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   assert.equal(reviveCommand.steam, "76561198000000000");
   assert.deepEqual(reviveCommand.args, {});
 });
+
+test("position stream authenticates, isolates players, snapshots, updates, and cleans up", async (context) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tpnislecontrol-sse-"));
+  const port = await unusedPort();
+  const configFile = path.join(directory, "config.json");
+  fs.writeFileSync(configFile, JSON.stringify({
+    host: "127.0.0.1",
+    port,
+    gameTransport: "http",
+    apiToken: "test-api-token",
+    modSavedDir: path.join(directory, "ipc"),
+    stateFile: path.join(directory, "state.json"),
+    pollMs: 50
+  }));
+
+  const child = spawn(process.execPath, ["src/index.js"], {
+    cwd: path.resolve(import.meta.dirname, ".."),
+    env: { ...process.env, TPNISLECONTROL_CONFIG: configFile },
+    stdio: "ignore"
+  });
+  context.after(() => child.kill());
+
+  const url = `http://127.0.0.1:${port}`;
+  const steam = "76561198000000000";
+  const otherSteam = "76561198000000001";
+  await waitForHealth(url, child);
+
+  assert.equal((await fetch(`${url}/players/${steam}/position/stream`)).status, 401);
+  assert.equal((await fetch(`${url}/players/not-a-steam-id/position/stream`, {
+    headers: { authorization: "Bearer test-api-token" }
+  })).status, 400);
+
+  await fetch(`${url}/game/sync`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ positions: [{ steam, pos: { x: 100, y: 200, z: 300 } }] })
+  });
+
+  const controller = new AbortController();
+  const response = await fetch(`${url}/players/${steam}/position/stream`, {
+    headers: { authorization: "Bearer test-api-token" },
+    signal: controller.signal
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /^text\/event-stream/);
+  assert.equal(response.headers.get("x-accel-buffering"), "no");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const initial = decoder.decode((await reader.read()).value);
+  assert.match(initial, /"position":\{"x":100,"y":200,"z":300\}/);
+
+  await fetch(`${url}/game/sync`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      positions: [
+        { steam: otherSteam, pos: { x: 9, y: 9, z: 9 } },
+        { steam, pos: { x: 101, y: 202, z: 303 } }
+      ]
+    })
+  });
+  const update = decoder.decode((await reader.read()).value);
+  assert.match(update, /"steamId":"76561198000000000"/);
+  assert.match(update, /"position":\{"x":101,"y":202,"z":303\}/);
+  assert.doesNotMatch(update, /"x":9/);
+
+  controller.abort();
+  await reader.cancel().catch(() => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const health = await (await fetch(`${url}/health`)).json();
+  assert.equal(health.positionStreamSubscribers, 0);
+});

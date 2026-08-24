@@ -1,0 +1,12 @@
+{
+  "revision": "islemaps-gateway-dark-2026-08-24",
+  "image": { "src": "/maps/gateway/gateway-dark.png", "width": 2500, "height": 2500 },
+  "worldBounds": { "minX": -560000, "maxX": 674000, "minY": -618000, "maxY": 616000 },
+  "axes": { "x": "left-to-right", "y": "top-to-bottom" },
+  "attribution": "Gateway basemap © IsleMaps — Created by Pont & Emeara · islemaps.com",
+  "verificationPoints": [
+    { "world": { "x": -560000, "y": -618000 }, "image": { "x": 0, "y": 0 } },
+    { "world": { "x": 674000, "y": 616000 }, "image": { "x": 2500, "y": 2500 } },
+    { "world": { "x": 57000, "y": -1000 }, "image": { "x": 1250, "y": 1250 } }
+  ]
+}

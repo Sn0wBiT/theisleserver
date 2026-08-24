@@ -10,7 +10,7 @@ export function QuestTabs({ quests }: { quests: Quest[] }) {
     <Tabs defaultValue="daily" className="min-h-0 flex-1">
       <TabsList>
         {periods.map((period) => (
-          <TabsTrigger key={period} value={period}>
+          <TabsTrigger className="flex items-center" key={period} value={period}>
             {periodLabels[period]}<span className="ml-1.5 text-[9px] text-ash">{quests.filter((quest) => quest.period === period).length}</span>
           </TabsTrigger>
         ))}
