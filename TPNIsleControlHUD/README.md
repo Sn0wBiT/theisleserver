@@ -21,7 +21,7 @@ Vite development mode uses built-in Vietnamese mock quest data, including incomp
 
 Copy `config/config.example.json` beside the executable as `config.json`, then set `development` to `true`. The native host loads `http://localhost:5173`.
 
-Set `frontend/public/config.json` to the public origin of the `tpn-dino` Next.js app. The HUD only calls its authenticated `/api/quests` routes. The Next.js server derives the Steam ID from the player session and keeps the bridge URL and administrative token server-side.
+Set `apiUrl` in `frontend/src/services/api.ts` to the public origin of the `tpn-dino` Next.js app, then rebuild the frontend. The HUD only calls its authenticated API routes. The Next.js server derives the Steam ID from the player session and keeps the bridge URL and administrative token server-side.
 
 Set `HUD_ORIGIN` on the Next.js deployment to the WebView origin (default `https://app.tpn.local`; use `http://localhost:5173` during Vite development) so its quest API allows only the intended HUD origin. Authentication may use the existing signed session cookie or a future short-lived player bearer token; bridge/admin tokens are never accepted by the HUD.
 
@@ -45,7 +45,7 @@ cd ..
 cmake --install build --config Release --prefix release
 ```
 
-The result contains `TPNIsleControlHUD.exe`, `config.json`, and the production frontend under `ui/`. Review `config.json` before distribution; the example API URL is intentionally non-functional.
+The result contains `TPNIsleControlHUD.exe`, `config.json`, and the production frontend under `ui/`. Review the native configuration and the build-time `apiUrl` before distribution; the example API URL is intentionally non-functional.
 
 ## Controls
 
@@ -57,6 +57,6 @@ The overlay tracks the client rectangle of `TheIsle-Win64-Shipping.exe` or `TheI
 
 ## Configuration
 
-Native settings live in `config.json`. Frontend runtime settings live in `ui/config.json`, allowing the API URL and adapter mode to change without rebuilding JavaScript. Never place an administrative API token in either frontend configuration or source.
+Native settings live in `config.json`. The frontend API origin is the build-time `apiUrl` constant in `frontend/src/services/api.ts`; changing it requires rebuilding the frontend. Never place an administrative API token in frontend or native configuration source.
 
 WebView2 uses a windowed controller with a fully transparent default background, hosted by a topmost layered Win32 popup. This keeps the v0.1 implementation small while preserving the external-process boundary; a composition controller can replace it later if testing identifies GPU/driver-specific windowed-controller artifacts.

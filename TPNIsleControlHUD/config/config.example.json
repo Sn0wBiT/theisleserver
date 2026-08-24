@@ -1,7 +1,6 @@
 {
   "development": false,
   "frontendDevUrl": "http://localhost:5173",
-  "apiUrl": "https://isle.example.tpn",
   "overlayHotkey": "F6",
   "gameExecutables": [
     "TheIsle-Win64-Shipping.exe",

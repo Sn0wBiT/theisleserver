@@ -1,5 +1,5 @@
 import { getAccessToken } from "@/services/auth";
-import { getRuntimeConfig } from "@/services/api";
+import { apiUrl } from "@/services/api";
 import { positionEventSchema, type PositionEvent } from "./types";
 
 export const reconnectDelay = (attempt: number) => [1000, 2000, 5000, 10000][Math.min(attempt, 3)];
@@ -13,8 +13,7 @@ export async function consumePositionStream(
   signal: AbortSignal,
   onEvent: (event: PositionEvent) => void,
 ): Promise<Response> {
-  const config = await getRuntimeConfig();
-  const baseUrl = (config.apiUrl ?? "").replace(/\/$/, "");
+  const baseUrl = apiUrl.replace(/\/$/, "");
   const headers = new Headers({ Accept: "text/event-stream" });
   const token = getAccessToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);

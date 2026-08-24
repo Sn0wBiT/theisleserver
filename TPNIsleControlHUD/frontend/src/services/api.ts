@@ -2,22 +2,10 @@ import { getAccessToken } from "@/services/auth";
 
 export type ApiError = Error & { status: number; code?: string };
 
-type RuntimeConfig = {
-  apiUrl?: string;
-};
-
-let configPromise: Promise<RuntimeConfig> | undefined;
-
-export function getRuntimeConfig() {
-  configPromise ??= fetch("/config.json", { cache: "no-store" })
-    .then((response) => (response.ok ? response.json() : {}))
-    .catch(() => ({})) as Promise<RuntimeConfig>;
-  return configPromise;
-}
+export const apiUrl = "https://isle.example.tpn";
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const config = await getRuntimeConfig();
-  const baseUrl = (config.apiUrl ?? "").replace(/\/$/, "");
+  const baseUrl = apiUrl.replace(/\/$/, "");
   const token = getAccessToken();
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
