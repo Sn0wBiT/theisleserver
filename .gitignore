@@ -9,6 +9,7 @@ docs/private
 !/scripts/**
 /TPNIsleControl/native/build/
 TPNIsleControl\bridge\data\state.json
+.gitnexus
 # Includes
 !TheIsle/Binaries/
 TheIsle/Binaries/*

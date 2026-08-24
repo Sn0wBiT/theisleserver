@@ -1,8 +1,14 @@
 #include "app/Application.hpp"
 
+#include <cstdint>
 #include <fstream>
+#include <sstream>
 
 namespace {
+constexpr UINT kTrayCallbackMessage = WM_APP + 1;
+constexpr UINT kReconnectCommand = 1;
+constexpr UINT kExitCommand = 2;
+
 std::filesystem::path ExecutableDirectory() {
     std::wstring path(32768, L'\0');
     const DWORD length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
@@ -21,6 +27,10 @@ int Application::Run() {
     while (GetMessageW(&message, nullptr, 0, 0) > 0) {
         if (message.message == WM_HOTKEY && message.wParam == InputManager::ToggleHotkeyId) {
             SetMode(mode_ == OverlayMode::Hud ? OverlayMode::Interactive : OverlayMode::Hud);
+        } else if (message.message == kTrayCallbackMessage) {
+            const UINT action = LOWORD(message.lParam);
+            if (action == WM_CONTEXTMENU || action == WM_RBUTTONDOWN || action == WM_RBUTTONUP) ShowTrayMenu();
+            else if (action == WM_LBUTTONDBLCLK) Reconnect();
         } else if (message.message == WM_TIMER && message.hwnd == overlay_.GetHandle()) {
             Tick();
         }
@@ -37,20 +47,25 @@ bool Application::Initialize() {
     if (!overlay_.Create(instance_)) { Log(L"overlay creation failed"); return false; }
     Log(L"overlay created");
     if (!input_.Register(overlay_.GetHandle(), config_.overlayHotkey)) Log(L"hotkey registration failed");
-    SetEnvironmentVariableW(L"WEBVIEW2_DEFAULT_BACKGROUND_COLOR", L"00000000");
+    SetEnvironmentVariableW(L"COREWEBVIEW2_FORCED_HOSTING_MODE", L"COREWEBVIEW2_HOSTING_MODE_WINDOW_TO_VISUAL");
+    SetEnvironmentVariableW(L"WEBVIEW2_DEFAULT_BACKGROUND_COLOR", L"FFFF00FF");
+    Log(L"WebView2 hosting mode: window-to-visual; diagnostic background: magenta");
     if (!webview_.Initialize(overlay_.GetHandle(), config_.development, config_.frontendDevUrl,
         executableDirectory_ / L"ui", config_.enableDevTools, config_.apiOrigin,
-        [this](const std::wstring& type, bool value) { HandleWebCommand(type, value); })) {
+        [this](const std::wstring& type, bool value) { HandleWebCommand(type, value); },
+        [this](const std::wstring& message) { Log(message.c_str()); })) {
         Log(L"WebView2 initialization failed");
         return false;
     }
     Log(L"WebView2 initialization started");
+    AddTrayIcon();
     SetTimer(overlay_.GetHandle(), 1, 100, nullptr);
     Tick();
     return true;
 }
 
 void Application::Tick() {
+    overlay_.SetInteractive(mode_ == OverlayMode::Interactive);
     if (tracker_.IsFound()) tracker_.Update(); else tracker_.Find();
     const bool connected = tracker_.IsFound();
     if (connected != gameConnected_) {
@@ -59,22 +74,51 @@ void Application::Tick() {
         webview_.PostJson(connected ? L"{\"type\":\"game.connected\"}" : L"{\"type\":\"game.disconnected\"}");
         if (!connected) SetMode(OverlayMode::Hud);
     }
-    if (!connected) { overlay_.Hide(); return; }
+    if (!connected) {
+        webview_.SetVisible(false);
+        overlay_.Hide();
+        LogOverlayState(L"hide", L"game-not-found");
+        return;
+    }
 
-    const bool foreground = tracker_.IsForeground() || (mode_ == OverlayMode::Interactive && GetForegroundWindow() == overlay_.GetHandle());
+    const HWND foregroundWindow = GetForegroundWindow();
+    const bool overlayForeground = foregroundWindow == overlay_.GetHandle() ||
+                                   IsChild(overlay_.GetHandle(), foregroundWindow) != FALSE;
+    const bool foreground = tracker_.IsForeground() ||
+                            (mode_ == OverlayMode::Interactive && overlayForeground);
     if (foreground != gameForeground_) {
         gameForeground_ = foreground;
         webview_.PostJson(foreground ? L"{\"type\":\"game.foregroundChanged\",\"foreground\":true}" : L"{\"type\":\"game.foregroundChanged\",\"foreground\":false}");
     }
-    if (!tracker_.IsVisible() || tracker_.IsMinimized() || !foreground) { overlay_.Hide(); return; }
+    if (!tracker_.IsVisible()) {
+        webview_.SetVisible(false);
+        overlay_.Hide();
+        LogOverlayState(L"hide", L"game-window-hidden");
+        return;
+    }
+    if (tracker_.IsMinimized()) {
+        webview_.SetVisible(false);
+        overlay_.Hide();
+        LogOverlayState(L"hide", L"game-window-minimized");
+        return;
+    }
+    if (!foreground) {
+        webview_.SetVisible(false);
+        overlay_.Hide();
+        LogOverlayState(L"hide", L"game-not-foreground");
+        return;
+    }
     overlay_.SetBounds(tracker_.GetClientScreenRect());
     webview_.Resize();
+    webview_.SetVisible(true);
     overlay_.Show();
+    LogOverlayState(L"show", L"game-ready");
 }
 
 void Application::SetMode(OverlayMode mode) {
     if (mode_ == mode) return;
     mode_ = mode;
+    Log(mode == OverlayMode::Interactive ? L"overlay mode changed: interactive" : L"overlay mode changed: hud");
     overlay_.SetInteractive(mode == OverlayMode::Interactive);
     webview_.PostJson(mode == OverlayMode::Interactive
         ? L"{\"type\":\"overlay.modeChanged\",\"mode\":\"interactive\"}"
@@ -88,12 +132,89 @@ void Application::HandleWebCommand(const std::wstring& type, bool value) {
     else if (type == L"app.exit") PostMessageW(overlay_.GetHandle(), WM_CLOSE, 0, 0);
 }
 
+void Application::AddTrayIcon() {
+    trayIcon_ = {};
+    trayIcon_.cbSize = sizeof(trayIcon_);
+    trayIcon_.hWnd = overlay_.GetHandle();
+    trayIcon_.uID = 1;
+    trayIcon_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
+    trayIcon_.uCallbackMessage = kTrayCallbackMessage;
+    trayIcon_.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+    wcscpy_s(trayIcon_.szTip, L"TPN Isle Control HUD");
+    if (!Shell_NotifyIconW(NIM_ADD, &trayIcon_)) {
+        Log(L"tray icon creation failed");
+        return;
+    }
+    trayIcon_.uVersion = NOTIFYICON_VERSION_4;
+    if (!Shell_NotifyIconW(NIM_SETVERSION, &trayIcon_)) Log(L"tray icon version setup failed");
+    else Log(L"tray icon created");
+}
+
+void Application::RemoveTrayIcon() {
+    if (trayIcon_.hWnd) Shell_NotifyIconW(NIM_DELETE, &trayIcon_);
+    trayIcon_ = {};
+}
+
+void Application::ShowTrayMenu() {
+    Log(L"tray menu requested");
+    HMENU menu = CreatePopupMenu();
+    if (!menu) return;
+    AppendMenuW(menu, MF_STRING, kReconnectCommand, L"Reconnect to Next.js");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, kExitCommand, L"Exit");
+    POINT cursor{};
+    GetCursorPos(&cursor);
+    SetForegroundWindow(overlay_.GetHandle());
+    const UINT command = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
+                                        cursor.x, cursor.y, 0, overlay_.GetHandle(), nullptr);
+    DestroyMenu(menu);
+    PostMessageW(overlay_.GetHandle(), WM_NULL, 0, 0);
+    if (command == kReconnectCommand) Reconnect();
+    else if (command == kExitCommand) PostMessageW(overlay_.GetHandle(), WM_CLOSE, 0, 0);
+}
+
+void Application::Reconnect() {
+    Log(webview_.Reload() ? L"Next.js reconnect requested" : L"Next.js reconnect failed");
+}
+
 void Application::Shutdown() {
     Log(L"shutdown");
     KillTimer(overlay_.GetHandle(), 1);
     input_.Unregister(overlay_.GetHandle());
+    RemoveTrayIcon();
     webview_.Close();
     overlay_.Destroy();
+}
+
+void Application::LogOverlayState(const wchar_t* action, const wchar_t* reason) {
+    const HWND overlay = overlay_.GetHandle();
+    RECT overlayRect{};
+    RECT overlayClient{};
+    GetWindowRect(overlay, &overlayRect);
+    GetClientRect(overlay, &overlayClient);
+    const RECT gameRect = tracker_.GetClientScreenRect();
+    const auto handle = [](HWND window) { return reinterpret_cast<std::uintptr_t>(window); };
+
+    std::wostringstream output;
+    output << L"overlay state: action=" << action
+           << L" reason=" << reason
+           << L" mode=" << (mode_ == OverlayMode::Interactive ? L"interactive" : L"hud")
+           << L" gameHwnd=" << handle(tracker_.GetWindow())
+           << L" foregroundHwnd=" << handle(GetForegroundWindow())
+           << L" overlayHwnd=" << handle(overlay)
+           << L" gameVisible=" << (tracker_.IsVisible() ? 1 : 0)
+           << L" gameMinimized=" << (tracker_.IsMinimized() ? 1 : 0)
+           << L" gameForeground=" << (tracker_.IsForeground() ? 1 : 0)
+           << L" overlayVisible=" << (IsWindowVisible(overlay) ? 1 : 0)
+           << L" overlayEnabled=" << (IsWindowEnabled(overlay) ? 1 : 0)
+           << L" exStyle=" << static_cast<unsigned long long>(GetWindowLongPtrW(overlay, GWL_EXSTYLE))
+           << L" gameRect=[" << gameRect.left << L"," << gameRect.top << L"," << gameRect.right << L"," << gameRect.bottom << L"]"
+           << L" overlayRect=[" << overlayRect.left << L"," << overlayRect.top << L"," << overlayRect.right << L"," << overlayRect.bottom << L"]"
+           << L" clientSize=" << (overlayClient.right - overlayClient.left) << L"x" << (overlayClient.bottom - overlayClient.top);
+    const std::wstring diagnostic = output.str();
+    if (diagnostic == lastOverlayDiagnostic_) return;
+    lastOverlayDiagnostic_ = diagnostic;
+    Log(diagnostic.c_str());
 }
 
 void Application::Log(const wchar_t* message) const {

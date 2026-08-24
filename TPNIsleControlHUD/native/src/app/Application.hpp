@@ -7,6 +7,7 @@
 #include "webview/WebViewHost.hpp"
 
 #include <filesystem>
+#include <shellapi.h>
 
 enum class OverlayMode { Hud, Interactive };
 
@@ -19,7 +20,12 @@ private:
     void Tick();
     void SetMode(OverlayMode mode);
     void HandleWebCommand(const std::wstring& type, bool value);
+    void AddTrayIcon();
+    void RemoveTrayIcon();
+    void ShowTrayMenu();
+    void Reconnect();
     void Shutdown();
+    void LogOverlayState(const wchar_t* action, const wchar_t* reason);
     void Log(const wchar_t* message) const;
 
     HINSTANCE instance_;
@@ -32,5 +38,7 @@ private:
     OverlayMode mode_{OverlayMode::Hud};
     bool gameConnected_{false};
     bool gameForeground_{false};
+    std::wstring lastOverlayDiagnostic_;
+    NOTIFYICONDATAW trayIcon_{};
 };
 

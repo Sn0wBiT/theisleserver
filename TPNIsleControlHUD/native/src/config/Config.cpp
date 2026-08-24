@@ -15,7 +15,7 @@ std::wstring Utf8ToWide(const std::string& value) {
 }
 
 std::string StringValue(const std::string& json, const char* key, const std::string& fallback) {
-    const std::regex pattern(std::string{"\""} + key + R"("\s*:\s*"([^"]*)")");
+    const std::regex pattern(std::string{"\""} + key + R"regex("\s*:\s*"([^"]*)")regex");
     std::smatch match;
     return std::regex_search(json, match, pattern) ? match[1].str() : fallback;
 }
@@ -41,7 +41,7 @@ Config Config::Load(const std::filesystem::path& path) {
     config.overlayHotkey = Utf8ToWide(StringValue(json, "overlayHotkey", "F6"));
 
     const std::regex arrayPattern(R"("gameExecutables"\s*:\s*\[([^\]]*)\])");
-    const std::regex itemPattern(R"("([^"]+)")");
+    const std::regex itemPattern(R"regex("([^"]+)")regex");
     std::smatch arrayMatch;
     if (std::regex_search(json, arrayMatch, arrayPattern)) {
         std::vector<std::wstring> executables;

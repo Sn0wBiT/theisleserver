@@ -19,10 +19,12 @@
   "tokenBalances": {},
   "lastSnapshots": {
     "76561198041372743": {
-      "ts": 1787505805,
-      "hp": 92.230598449707,
-      "addr": "0x18FF5496DC0",
-      "growth": 0.34975162148476
+      "ts": 1787587116,
+      "dinosaurId": null,
+      "hp": 272.77630615234,
+      "addr": "0x2B1358F4930",
+      "species": "BlueprintGeneratedClass /Game/TheIsle/Core/Characters/Dinosaurs/Omniraptor/BP_Omniraptor.BP_Omniraptor_C",
+      "growth": 0.55308479070663
     }
   }
 }

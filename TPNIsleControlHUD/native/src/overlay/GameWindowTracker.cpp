@@ -12,7 +12,7 @@ bool GameWindowTracker::Find() {
     SearchContext context{this, nullptr};
     EnumWindows([](HWND window, LPARAM parameter) -> BOOL {
         auto* search = reinterpret_cast<SearchContext*>(parameter);
-        if (!IsWindowVisible(window) || GetWindow(window, GW_OWNER) != nullptr) return TRUE;
+        if (!IsWindowVisible(window) || ::GetWindow(window, GW_OWNER) != nullptr) return TRUE;
         if (search->tracker->MatchesExecutable(window)) { search->result = window; return FALSE; }
         return TRUE;
     }, reinterpret_cast<LPARAM>(&context));

@@ -2,7 +2,7 @@ import { getAccessToken, sharedRefresh, type AuthResult } from "@/services/auth"
 
 export type ApiError = Error & { status: number; code?: string };
 
-export let apiUrl = import.meta.env.VITE_API_URL ?? "https://isle.example.tpn";
+export let apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 export function setApiUrl(value: string) { apiUrl = value.replace(/\/$/, ""); }
 
 export async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {

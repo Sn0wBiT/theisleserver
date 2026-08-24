@@ -12,7 +12,11 @@ bool OverlayWindow::Create(HINSTANCE instance) {
     hwnd_ = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
         kOverlayClass, L"TPN Isle Control HUD", WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, instance, this);
     if (!hwnd_) return false;
-    SetLayeredWindowAttributes(hwnd_, 0, 255, LWA_ALPHA);
+    if (!SetLayeredWindowAttributes(hwnd_, RGB(255, 0, 255), 255, LWA_COLORKEY | LWA_ALPHA)) {
+        DestroyWindow(hwnd_);
+        hwnd_ = nullptr;
+        return false;
+    }
     return true;
 }
 
