@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Calibration, PositionEvent } from "./types";
-import { worldToMap } from "./calibration";
+import { imagePointToLeaflet, worldToMap } from "./calibration";
 
 type Props = {
   calibration: Calibration;
@@ -49,7 +49,7 @@ export function MinimapMap({ calibration, position, compact = false, follow, rec
     const map = mapRef.current;
     if (!map || !position) return;
     const point = worldToMap(position.position, calibration);
-    const latLng = L.latLng(point.y, point.x);
+    const latLng = L.latLng(imagePointToLeaflet(point, calibration.image.height));
     latestPoint.current = latLng;
     if (!markerRef.current) {
       markerRef.current = L.marker(latLng, {

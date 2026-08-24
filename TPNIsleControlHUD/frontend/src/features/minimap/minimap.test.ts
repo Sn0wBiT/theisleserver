@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calibrationSchema } from "./types";
-import { worldToMap } from "./calibration";
+import { imagePointToLeaflet, worldToMap } from "./calibration";
 import { parsePositionEvent, reconnectDelay } from "./stream";
 import { followAfterAction, isPositionStale } from "./state";
 import { isMinimapFrame } from "./frame.store";
@@ -22,6 +22,11 @@ describe("Gateway calibration", () => {
     expect(worldToMap({ x: -100, y: -50 }, calibration)).toEqual({ x: 0, y: 500 });
     expect(worldToMap({ x: 100, y: 50 }, calibration)).toEqual({ x: 1000, y: 0 });
     expect(worldToMap({ x: 0, y: 0 }, calibration)).toEqual({ x: 500, y: 250 });
+  });
+
+  it("converts top-left image pixels to Leaflet's bottom-left coordinates", () => {
+    expect(imagePointToLeaflet({ x: 125, y: 0 }, 500)).toEqual([500, 125]);
+    expect(imagePointToLeaflet({ x: 125, y: 500 }, 500)).toEqual([0, 125]);
   });
 
   it("rejects invalid bounds", () => {

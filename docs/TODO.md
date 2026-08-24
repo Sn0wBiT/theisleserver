@@ -1,0 +1,3 @@
+- [ ] TPNIsleControlHUD should only show when player connected to server.
+- [ ] TPNIsleControlHUD frontend show keep position after drag of Quest panel.
+- [ ] TPNIsleControlHUD right menu from icon (bottom, right screen) doesn't show.

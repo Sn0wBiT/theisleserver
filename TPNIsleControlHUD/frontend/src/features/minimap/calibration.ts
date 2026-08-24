@@ -3,6 +3,10 @@ import { calibrationSchema } from "./types";
 
 export type MapPoint = { x: number; y: number };
 
+export function imagePointToLeaflet(point: MapPoint, imageHeight: number): [number, number] {
+  return [imageHeight - point.y, point.x];
+}
+
 export function worldToMap(position: { x: number; y: number }, calibration: Calibration): MapPoint {
   const { minX, maxX, minY, maxY } = calibration.worldBounds;
   let x = ((position.x - minX) / (maxX - minX)) * calibration.image.width;
