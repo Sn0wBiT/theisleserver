@@ -1,0 +1,46 @@
+#include "overlay/OverlayWindow.hpp"
+
+namespace { constexpr wchar_t kOverlayClass[] = L"TPNIsleControlHUDOverlay"; }
+
+bool OverlayWindow::Create(HINSTANCE instance) {
+    WNDCLASSEXW windowClass{sizeof(windowClass)};
+    windowClass.hInstance = instance;
+    windowClass.lpfnWndProc = WindowProc;
+    windowClass.lpszClassName = kOverlayClass;
+    windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    RegisterClassExW(&windowClass);
+    hwnd_ = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
+        kOverlayClass, L"TPN Isle Control HUD", WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, instance, this);
+    if (!hwnd_) return false;
+    SetLayeredWindowAttributes(hwnd_, 0, 255, LWA_ALPHA);
+    return true;
+}
+
+void OverlayWindow::Destroy() { if (hwnd_) DestroyWindow(hwnd_); hwnd_ = nullptr; }
+void OverlayWindow::SetBounds(const RECT& rect) {
+    SetWindowPos(hwnd_, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+}
+void OverlayWindow::Show() { ShowWindow(hwnd_, SW_SHOWNOACTIVATE); }
+void OverlayWindow::Hide() { ShowWindow(hwnd_, SW_HIDE); }
+
+void OverlayWindow::SetInteractive(bool enabled) {
+    if (!hwnd_ || interactive_ == enabled) return;
+    interactive_ = enabled;
+    auto styles = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
+    if (enabled) styles &= ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE);
+    else styles |= WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
+    SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, styles);
+    SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED | SWP_NOACTIVATE);
+    if (enabled) { SetForegroundWindow(hwnd_); SetFocus(hwnd_); }
+}
+
+LRESULT CALLBACK OverlayWindow::WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    if (message == WM_NCCREATE) {
+        auto* create = reinterpret_cast<CREATESTRUCTW*>(lParam);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
+    }
+    if (message == WM_ERASEBKGND) return 1;
+    if (message == WM_CLOSE) { DestroyWindow(hwnd); return 0; }
+    if (message == WM_DESTROY) { PostQuitMessage(0); return 0; }
+    return DefWindowProcW(hwnd, message, wParam, lParam);
+}

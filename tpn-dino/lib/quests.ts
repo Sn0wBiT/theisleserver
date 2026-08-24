@@ -15,6 +15,9 @@ export type QuestState = {
 export type AcceptQuestResult = {
   ok: boolean; error?: string; requiredGrowth?: number; currentGrowth?: number | null;
 };
+export type ClaimQuestResult = {
+  ok: boolean; error?: string; rewardTokens?: number; tokenBalance?: number;
+};
 
 function apiConfig() {
   const baseUrl = process.env.QUEST_API_URL ?? "http://127.0.0.1:31990";
@@ -40,6 +43,17 @@ export async function acceptQuest(steamId: string, questId: string): Promise<Acc
     { method: "POST", headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(5000) },
   );
   const result = (await response.json()) as AcceptQuestResult;
+  if (!response.ok && !result.error) throw new Error(`Quest service returned ${response.status}`);
+  return result;
+}
+
+export async function claimQuest(steamId: string, questId: string): Promise<ClaimQuestResult> {
+  const { baseUrl, token } = apiConfig();
+  const response = await fetch(
+    `${baseUrl}/quests/${encodeURIComponent(steamId)}/claim/${encodeURIComponent(questId)}`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(5000) },
+  );
+  const result = (await response.json()) as ClaimQuestResult;
   if (!response.ok && !result.error) throw new Error(`Quest service returned ${response.status}`);
   return result;
 }
