@@ -67,10 +67,26 @@ void OverlayWindow::SetInteractive(bool enabled) {
     interactive_ = enabled;
     auto styles = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
     if (enabled) styles &= ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE);
-    else styles |= WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
+    else {
+        styles |= WS_EX_NOACTIVATE;
+        if (hudPointerCaptured_) styles &= ~WS_EX_TRANSPARENT;
+        else styles |= WS_EX_TRANSPARENT;
+    }
     SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, styles);
     SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED | SWP_NOACTIVATE);
     if (enabled) { SetForegroundWindow(hwnd_); SetFocus(hwnd_); }
+}
+
+void OverlayWindow::SetHudPointerCapture(bool enabled) {
+    if (!hwnd_ || hudPointerCaptured_ == enabled) return;
+    hudPointerCaptured_ = enabled;
+    if (interactive_) return;
+    auto styles = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
+    if (enabled) styles &= ~WS_EX_TRANSPARENT;
+    else styles |= WS_EX_TRANSPARENT;
+    SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, styles);
+    SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED | SWP_NOACTIVATE);
 }
 
 LRESULT CALLBACK OverlayWindow::WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {

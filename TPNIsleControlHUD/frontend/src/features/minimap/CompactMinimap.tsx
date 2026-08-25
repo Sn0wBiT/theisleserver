@@ -1,4 +1,5 @@
 import { useOverlayStore } from "@/stores/overlay.store";
+import { postNativeMessage } from "@/services/native-bridge";
 import { useMinimapFrameStore } from "./frame.store";
 import { MinimapMap } from "./MinimapMap";
 import { MinimapStatus } from "./MinimapStatus";
@@ -7,6 +8,7 @@ import { usePositionStream } from "./usePositionStream";
 
 export function CompactMinimap() {
   const interactive = useOverlayStore((state) => state.interactive);
+  const setInteractive = useOverlayStore((state) => state.setInteractive);
   const openPanel = useOverlayStore((state) => state.openPanel);
   const frame = useMinimapFrameStore((state) => state.frame);
   const { calibration, invalid } = useCalibration();
@@ -21,7 +23,10 @@ export function CompactMinimap() {
     </>
   );
   const className = `compact-minimap compact-minimap--${frame}`;
-  return interactive
-    ? <button type="button" className={`${className} compact-minimap--interactive`} onClick={() => openPanel("minimap")} aria-label="Open expanded Gateway map">{content}</button>
-    : <section className={`${className} pointer-events-none`}>{content}</section>;
+  const openMap = () => {
+    postNativeMessage({ type: "overlay.openMap" });
+    setInteractive(true);
+    openPanel("minimap");
+  };
+  return <button type="button" className={`${className} compact-minimap--interactive${interactive ? "" : " pointer-events-auto"}`} onClick={openMap} aria-label="Open expanded Gateway map">{content}</button>;
 }

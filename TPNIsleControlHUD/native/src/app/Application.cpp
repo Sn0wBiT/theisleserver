@@ -33,8 +33,7 @@ int Application::Run() {
         if (message.message == WM_HOTKEY && message.wParam == InputManager::ToggleHotkeyId) {
             SetMode(mode_ == OverlayMode::Hud ? OverlayMode::Interactive : OverlayMode::Hud);
         } else if (message.message == WM_HOTKEY && message.wParam == InputManager::MapHotkeyId) {
-            SetMode(OverlayMode::Interactive);
-            webview_.PostJson(L"{\"type\":\"overlay.openPanel\",\"panel\":\"minimap\"}");
+            HandleWebCommand(L"overlay.openMap", false);
         } else if (message.message == kTrayCallbackMessage) {
             const UINT action = LOWORD(message.lParam);
             if (action == WM_CONTEXTMENU) {
@@ -44,6 +43,15 @@ int Application::Run() {
         } else if (message.message == WM_TIMER && message.hwnd == overlay_.GetHandle() &&
                    message.wParam == kTrackerTimer) {
             Tick();
+        } else if (message.message == WM_TIMER && message.hwnd == overlay_.GetHandle() &&
+                   message.wParam == kCefPumpTimer) {
+            POINT cursor{};
+            bool capturePointer = false;
+            if (mode_ == OverlayMode::Hud && GetCursorPos(&cursor) &&
+                ScreenToClient(overlay_.GetHandle(), &cursor)) {
+                capturePointer = webview_.IsPointOpaque(cursor.x, cursor.y);
+            }
+            overlay_.SetHudPointerCapture(capturePointer);
         }
         TranslateMessage(&message);
         DispatchMessageW(&message);
@@ -140,6 +148,10 @@ void Application::SetMode(OverlayMode mode) {
 void Application::HandleWebCommand(const std::wstring& type, bool value) {
     if (type == L"overlay.closePanel") SetMode(OverlayMode::Hud);
     else if (type == L"overlay.setInteractive") SetMode(value ? OverlayMode::Interactive : OverlayMode::Hud);
+    else if (type == L"overlay.openMap") {
+        SetMode(OverlayMode::Interactive);
+        webview_.PostJson(L"{\"type\":\"overlay.openPanel\",\"panel\":\"minimap\"}");
+    }
     else if (type == L"app.frontendReady") SendFrontendState();
     else if (type == L"app.exit") PostMessageW(overlay_.GetHandle(), WM_CLOSE, 0, 0);
 }

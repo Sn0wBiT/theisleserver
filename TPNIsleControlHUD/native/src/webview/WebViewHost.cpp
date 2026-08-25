@@ -478,6 +478,15 @@ void WebViewHost::PostJson(const std::wstring& json) const {
     impl_->browser->GetMainFrame()->ExecuteJavaScript(script, impl_->browser->GetMainFrame()->GetURL(), 0);
 }
 
+bool WebViewHost::IsPointOpaque(int x, int y) const {
+    if (!impl_->visible || !impl_->pixels || x < 0 || y < 0 ||
+        x >= impl_->surfaceWidth || y >= impl_->surfaceHeight) return false;
+    const auto* bytes = static_cast<const unsigned char*>(impl_->pixels);
+    const size_t alphaIndex = (static_cast<size_t>(y) * static_cast<size_t>(impl_->surfaceWidth) +
+                               static_cast<size_t>(x)) * 4U + 3U;
+    return bytes[alphaIndex] >= 32U;
+}
+
 void WebViewHost::HandleMessage(const std::wstring& json) {
     auto hasType = [&json](const wchar_t* type) {
         return json.find(std::wstring(L"\"type\":\"") + type + L"\"") != std::wstring::npos;
@@ -488,6 +497,8 @@ void WebViewHost::HandleMessage(const std::wstring& json) {
         if (commandHandler_) commandHandler_(L"overlay.closePanel", false);
     } else if (hasType(L"overlay.setInteractive")) {
         if (commandHandler_) commandHandler_(L"overlay.setInteractive", json.find(L"\"value\":true") != std::wstring::npos);
+    } else if (hasType(L"overlay.openMap")) {
+        if (commandHandler_) commandHandler_(L"overlay.openMap", false);
     } else if (hasType(L"app.getVersion")) {
         if (statusHandler_) statusHandler_(L"frontend bridge ready");
         PostJson(std::wstring(L"{\"type\":\"app.config\",\"apiUrl\":\"") + apiOrigin_ + L"\"}");

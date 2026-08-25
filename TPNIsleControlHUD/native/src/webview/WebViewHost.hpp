@@ -23,6 +23,7 @@ public:
     bool Reload();
     void Close();
     void PostJson(const std::wstring& json) const;
+    [[nodiscard]] bool IsPointOpaque(int x, int y) const;
 private:
     void HandleMessage(const std::wstring& json);
     struct Impl;
