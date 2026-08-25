@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TPN Dino
 
-## Getting Started
+Ứng dụng Next.js dùng để đăng nhập bằng Steam, theo dõi nhiệm vụ The Isle, xem tiến độ trực tiếp và quản lý kết nối với TPNIsleControlHUD.
 
-First, run the development server:
+## Bắt đầu phát triển
+
+Cài đặt các gói phụ thuộc và khởi chạy máy chủ phát triển:
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Mở [http://localhost:3000](http://localhost:3000) trong trình duyệt. Giao diện chính nằm trong `app/page.tsx`; Next.js tự động cập nhật trang khi mã nguồn thay đổi.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Cấu hình môi trường
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Sao chép `.env.example` thành `.env.local`, sau đó cấu hình:
 
-## Learn More
+- `QUEST_API_URL`: địa chỉ dịch vụ bridge nhiệm vụ;
+- `QUEST_API_TOKEN`: token quản trị chỉ dùng ở phía máy chủ;
+- `SESSION_SECRET`: khóa ký phiên đăng nhập web;
+- `DATABASE_URL`: chuỗi kết nối PostgreSQL;
+- `HUD_ACCESS_TOKEN_SECRET`: khóa riêng để ký access token của HUD;
+- `STEAM_WEB_API_KEY`: khóa Steam Web API để bổ sung thông tin hồ sơ công khai;
+- `HUD_ORIGIN`: origin CORS của HUD nhúng, mặc định `http://dino.tpnrp.local`.
 
-To learn more about Next.js, take a look at the following resources:
+Không đưa `QUEST_API_TOKEN`, khóa ký hoặc thông tin kết nối cơ sở dữ liệu vào mã frontend.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Kiểm tra và đóng gói
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm test
+npm run lint
+npm run build
+```
 
-## Deploy on Vercel
+Ứng dụng sử dụng App Router, Route Handlers và `next/font` của Next.js. Các route `/api/hud-auth/*` phục vụ quy trình đăng nhập HUD; `/api/quests/*` và `/api/minimap/*` yêu cầu danh tính người chơi hợp lệ.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Triển khai
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Sau khi tạo bản dựng production, khởi chạy bằng:
+
+```bash
+npm start
+```
+
+Đảm bảo PostgreSQL đã được migrate, dịch vụ bridge đang hoạt động và origin HUD production được cấu hình chính xác trước khi phát hành.

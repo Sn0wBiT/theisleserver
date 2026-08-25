@@ -13,14 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TPN Questboard",
-  description: "Track your live The Isle quests and rewards.",
+  title: "Bảng nhiệm vụ TPN",
+  description: "Theo dõi trực tiếp nhiệm vụ và phần thưởng trong The Isle.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="vi"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
