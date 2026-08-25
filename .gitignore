@@ -5,8 +5,6 @@ node_modules
 TheIsle/*
 **.log
 docs/private
-!/scripts/
-!/scripts/**
 /TPNIsleControl/native/build/
 TPNIsleControl\bridge\data\state.json
 .gitnexus
