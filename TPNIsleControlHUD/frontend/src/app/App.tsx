@@ -6,11 +6,12 @@ import { bindNativeBridge, closeInteractiveMode } from "@/services/native-bridge
 import { useOverlayStore } from "@/stores/overlay.store";
 import { AuthGate } from "@/features/auth/AuthGate";
 import { PositionStreamProvider, usePositionStream } from "@/features/minimap/usePositionStream";
+import { isUiDevelopment } from "@/config/ui-development";
 
 function AuthenticatedHud() {
   const { playerPresent, status } = usePositionStream();
   const interactive = useOverlayStore((state) => state.interactive);
-  if (!playerPresent) {
+  if (!isUiDevelopment && !playerPresent) {
     if (!interactive) return null;
     return <div className="absolute inset-0 grid place-items-center"><section className="hud-panel border border-stone p-5 text-sm text-bone">{status === "unauthorized" ? "Your session expired. Sign in again." : "Waiting for a fresh in-game position…"}</section></div>;
   }
@@ -37,6 +38,12 @@ export function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [interactive]);
 
+  const hud = (
+    <PositionStreamProvider>
+      <AuthenticatedHud />
+    </PositionStreamProvider>
+  );
+
   return (
     <main className="relative h-screen w-screen overflow-hidden">
       {runtimeError && (
@@ -45,11 +52,7 @@ export function App() {
         </div>
       )}
       {runtimeReady && (
-        <AuthGate>
-          <PositionStreamProvider>
-            <AuthenticatedHud />
-          </PositionStreamProvider>
-        </AuthGate>
+        isUiDevelopment ? hud : <AuthGate>{hud}</AuthGate>
       )}
       <NotificationLayer />
     </main>

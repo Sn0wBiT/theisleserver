@@ -19,6 +19,14 @@ npm run dev
 
 Vite development mode uses built-in Vietnamese mock quest data, including accept, incomplete, claimable, and claimed states across all three periods. Accepting or claiming updates the mock state in memory. Production builds always use the configured Next.js API.
 
+To open the interactive quest UI in a browser without Steam authentication, a running game, or a position stream, use:
+
+```powershell
+npm run dev:ui
+```
+
+This bypass is available only while Vite is serving in development mode. `npm run dev` keeps the normal authentication and game-presence gates, and production builds cannot enable the bypass.
+
 The packaged native host does not read runtime configuration. Native development settings are compiled from `native/src/config/Config.hpp`; set `development` and `enableDevTools` there and rebuild to make the host load `http://localhost:5173`. Set `apiOrigin` in the same source file to the public origin of the `tpn-dino` Next.js app. CEF sends and validates this origin during the frontend-ready handshake before authentication mounts or any API request starts. Browser/Vite mode uses the source default in `frontend/src/services/api.ts`.
 
 Set `HUD_ORIGIN` on the Next.js deployment to the embedded browser origin (default `http://dino.tpnrp.local`; use `http://localhost:5173` during Vite development) so its API allows only the intended HUD origin. Bridge/admin tokens are never accepted by the HUD.
@@ -31,7 +39,7 @@ From a Visual Studio Developer PowerShell:
 .\..\scripts\build.ps1
 ```
 
-CMake downloads the pinned 64-bit CEF standard distribution at configure time and builds its C++ wrapper. Expect the first configure to download a few hundred megabytes. CEF's Chromium runtime, resources, locales, and license are copied beside the executable and included by `cmake --install`; no separately installed browser runtime is required.
+The build script prompts for every compiled native setting and displays the current source value as its default. Press Enter to keep a value; changed answers are written to `native/src/config/Config.hpp` before the build continues. CMake downloads the pinned 64-bit CEF standard distribution at configure time and builds its C++ wrapper. Expect the first configure to download a few hundred megabytes. CEF's Chromium runtime, resources, locales, and license are copied beside the executable and included by `cmake --install`; no separately installed browser runtime is required.
 
 ## Release layout
 
