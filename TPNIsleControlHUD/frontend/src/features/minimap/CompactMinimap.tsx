@@ -16,10 +16,10 @@ export function CompactMinimap() {
   const content = (
     <>
       <div className="minimap-canvas">
-        {calibration ? <MinimapMap compact calibration={calibration} position={position} follow /> : <div className="minimap-empty">{invalid ? "Map configuration unavailable" : "Loading map…"}</div>}
+        {calibration ? <MinimapMap compact calibration={calibration} position={position} follow /> : <div className="minimap-empty">{invalid ? "Không tìm thấy cấu hình bản đồ" : "Đang tải..."}</div>}
         <div className="minimap-status-overlay hidden"><MinimapStatus status={status} /></div>
-        {position && <div className="minimap-coordinates">X {position.position.x.toFixed(0)} · Y {position.position.y.toFixed(0)} · Z {position.position.z.toFixed(0)}</div>}
       </div>
+      {position && <div className="minimap-coordinates">X {position.position.x.toFixed(0)} · Y {position.position.y.toFixed(0)} · Z {position.position.z.toFixed(0)}</div>}
     </>
   );
   const className = `compact-minimap compact-minimap--${frame}`;
@@ -28,5 +28,5 @@ export function CompactMinimap() {
     setInteractive(true);
     openPanel("minimap");
   };
-  return <button type="button" className={`${className} compact-minimap--interactive${interactive ? "" : " pointer-events-auto"}`} onClick={openMap} aria-label="Open expanded Gateway map">{content}</button>;
+  return <button type="button" className={`${className} compact-minimap--interactive${interactive ? "" : " pointer-events-auto"}`} onClick={openMap} aria-label="Mở bản đồ">{content}</button>;
 }
