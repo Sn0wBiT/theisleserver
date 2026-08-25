@@ -17,8 +17,8 @@ function AuthenticatedHud() {
   }
   return (
     <>
-      <HudLayer />
       <PanelLayer />
+      <HudLayer />
     </>
   );
 }
