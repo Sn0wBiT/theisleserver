@@ -28,8 +28,8 @@ export function HudLayer() {
         <button
           type="button"
           className={cn(
-            "pointer-events-auto top-4 flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
-            expandedMinimapOpen ? "relative" : "absolute ",
+            "pointer-events-auto top-4 flex hidden cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
+            expandedMinimapOpen ? "relative" : "absolute left-49",
           )}
           onClick={openMap}
           aria-label="Mở bản đồ"
@@ -44,7 +44,7 @@ export function HudLayer() {
           type="button"
           className={cn(
             "pointer-events-auto top-4 flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
-            expandedMinimapOpen ? "relative" : "absolute left-49",
+            expandedMinimapOpen ? "relative" : "absolute",
           )}
           onClick={openInteractive}
           aria-label="Mở bảng nhiệm vụ"
