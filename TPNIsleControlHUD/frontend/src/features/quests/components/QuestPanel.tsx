@@ -1,6 +1,6 @@
 import { CircleAlert, RefreshCw, RotateCcw, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/old_button";
 import { QuestTabs } from "@/features/quests/components/QuestTabs";
 import { useQuests } from "@/features/quests/hooks/useQuests";
 import { closeInteractiveMode } from "@/services/native-bridge";

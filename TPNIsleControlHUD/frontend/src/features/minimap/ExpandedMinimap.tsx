@@ -1,6 +1,6 @@
 import { Circle, Crosshair, ListChecks, Square, X } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/old_button";
 import { closeInteractiveMode } from "@/services/native-bridge";
 import { useOverlayStore } from "@/stores/overlay.store";
 import { MinimapMap } from "./MinimapMap";
@@ -20,7 +20,7 @@ export function ExpandedMinimap() {
   const setFrame = useMinimapFrameStore((state) => state.setFrame);
   const recenter = () => { setFollow(followAfterAction("recenter")); setRecenterKey((value) => value + 1); };
 
-  return <section className="expanded-minimap hud-panel" aria-label="Expanded Gateway minimap">
+  return <section className="expanded-minimap hud-panel pointer-events-auto" aria-label="Expanded Gateway minimap">
     <header className="expanded-minimap__header">
       <div><span className="eyebrow">Navigation / Gateway</span><h1>FIELD MAP</h1></div>
       <div className="flex items-center gap-2">

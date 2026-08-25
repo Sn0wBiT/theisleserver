@@ -32,6 +32,9 @@ int Application::Run() {
     while (GetMessageW(&message, nullptr, 0, 0) > 0) {
         if (message.message == WM_HOTKEY && message.wParam == InputManager::ToggleHotkeyId) {
             SetMode(mode_ == OverlayMode::Hud ? OverlayMode::Interactive : OverlayMode::Hud);
+        } else if (message.message == WM_HOTKEY && message.wParam == InputManager::MapHotkeyId) {
+            SetMode(OverlayMode::Interactive);
+            webview_.PostJson(L"{\"type\":\"overlay.openPanel\",\"panel\":\"minimap\"}");
         } else if (message.message == kTrayCallbackMessage) {
             const UINT action = LOWORD(message.lParam);
             if (action == WM_CONTEXTMENU) {

@@ -3,6 +3,7 @@ import { apiUrl, setApiUrl } from "@/services/api";
 
 export type NativeEvent =
   | { type: "overlay.modeChanged"; mode: "hud" | "interactive" }
+  | { type: "overlay.openPanel"; panel: "minimap" }
   | { type: "game.connected" }
   | { type: "game.disconnected" }
   | { type: "game.foregroundChanged"; foreground: boolean }
@@ -16,6 +17,7 @@ export function postNativeMessage(message: object) {
 export function handleNativeEvent(message: NativeEvent) {
   const store = useOverlayStore.getState();
   if (message.type === "overlay.modeChanged") store.setInteractive(message.mode === "interactive");
+  if (message.type === "overlay.openPanel") store.openPanel(message.panel);
   if (message.type === "game.connected") store.setGameProcessConnected(true);
   if (message.type === "game.disconnected") store.setGameProcessConnected(false);
   if (message.type === "game.foregroundChanged") store.setGameForeground(message.foreground);

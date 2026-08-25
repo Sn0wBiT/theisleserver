@@ -1,5 +1,5 @@
 import { Check, LockKeyhole } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/old_button";
 import { QuestProgress } from "@/features/quests/components/QuestProgress";
 import { QuestReward } from "@/features/quests/components/QuestReward";
 import { useClaimQuest } from "@/features/quests/hooks/useClaimQuest";
