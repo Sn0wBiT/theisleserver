@@ -1,8 +1,4 @@
 /build/
 /release/
-/config/config.json
 /frontend/dist/
 /frontend/node_modules/
-.env
-.env.local
-

@@ -24,7 +24,7 @@ std::filesystem::path ExecutableDirectory() {
 
 Application::Application(HINSTANCE instance)
     : instance_(instance), executableDirectory_(ExecutableDirectory()),
-      config_(Config::Load(executableDirectory_ / L"config.json")), tracker_(config_.gameExecutables) {}
+      config_(), tracker_(config_.gameExecutables) {}
 
 int Application::Run() {
     if (!Initialize()) return 1;

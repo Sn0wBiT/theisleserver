@@ -27,7 +27,7 @@ The frontend-ready message causes the native host to send:
 - current game-process connection state;
 - current foreground state.
 
-In CEF, React does not mount authentication or contact the API until `app.config.apiUrl` is a valid HTTP(S) origin. Browser/Vite mode initializes from `VITE_API_URL`. The embedded UI/CORS origin is `http://dino.tpnrp.local`.
+In CEF, React does not mount authentication or contact the API until `app.config.apiUrl` is a valid HTTP(S) origin. Browser/Vite mode initializes from the source default in `frontend/src/services/api.ts`. The embedded UI/CORS origin is `http://dino.tpnrp.local`.
 
 The production example disables development mode and DevTools and uses the intentionally nonfunctional `https://api.invalid` API origin. The development example enables Vite and DevTools. Both list all supported Isle executable names.
 

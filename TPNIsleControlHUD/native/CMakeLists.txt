@@ -28,7 +28,6 @@ add_executable(TPNIsleControlHUD WIN32
   src/main.cpp
   src/app/Application.cpp
   src/cef/CefApplication.cpp
-  src/config/Config.cpp
   src/overlay/GameWindowTracker.cpp
   src/overlay/InputManager.cpp
   src/overlay/OverlayWindow.cpp
@@ -71,4 +70,3 @@ if(NOT EXISTS "${HUD_FRONTEND_DIST}/index.html" OR NOT HUD_FRONTEND_ASSETS)
   message(FATAL_ERROR "Frontend production assets are missing. Run npm ci, npm test, and npm run build in frontend first.")
 endif()
 install(DIRECTORY "${HUD_FRONTEND_DIST}/" DESTINATION ui)
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../config/config.example.json" DESTINATION . RENAME config.json)
