@@ -1,8 +1,7 @@
-import { Circle, Crosshair, ListChecks, Square, X } from "lucide-react";
+import { Circle, Crosshair, Square, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/old_button";
 import { closeInteractiveMode } from "@/services/native-bridge";
-import { useOverlayStore } from "@/stores/overlay.store";
 import { MinimapMap } from "./MinimapMap";
 import { MinimapStatus } from "./MinimapStatus";
 import { useCalibration } from "./useCalibration";
@@ -11,7 +10,7 @@ import { followAfterAction } from "./state";
 import { useMinimapFrameStore, type MinimapFrame } from "./frame.store";
 
 export function ExpandedMinimap() {
-  const openPanel = useOverlayStore((state) => state.openPanel);
+  // const openPanel = useOverlayStore((state) => state.openPanel);
   const { calibration, invalid } = useCalibration();
   const { position, status } = usePositionStream();
   const [follow, setFollow] = useState(true);
@@ -22,13 +21,13 @@ export function ExpandedMinimap() {
 
   return <section className="expanded-minimap hud-panel pointer-events-auto" aria-label="Expanded Gateway minimap">
     <header className="expanded-minimap__header">
-      <div><span className="eyebrow">Navigation / Gateway</span><h1>FIELD MAP</h1></div>
+      <div><h1>BẢN ĐỒ</h1></div>
       <div className="flex items-center gap-2">
         <div className="minimap-frame-control" role="group" aria-label="Compact minimap frame">
-          {(["square", "circle"] as MinimapFrame[]).map((value) => <button key={value} type="button" className={frame === value ? "is-active" : ""} onClick={() => setFrame(value)} aria-pressed={frame === value}>{value === "square" ? <Square /> : <Circle />}{value}</button>)}
+          {(["square", "circle"] as MinimapFrame[]).map((value) => <button key={value} type="button" className={frame === value ? "is-active" : ""} onClick={() => setFrame(value)} aria-pressed={frame === value}>{value === "square" ? <Square /> : <Circle />}{value === 'square' ? 'Vuông' : 'Tròn'}</button>)}
         </div>
-        <Button variant="ghost" onClick={() => openPanel("quests")}><ListChecks /> Quests</Button>
-        <Button variant="ghost" onClick={recenter}><Crosshair /> Recenter</Button>
+        {/* <Button variant="ghost" onClick={() => openPanel("quests")}><ListChecks /> Quests</Button> */}
+        <Button variant="ghost" onClick={recenter}><Crosshair /> Về giữa</Button>
         <Button variant="ghost" size="icon" onClick={closeInteractiveMode} aria-label="Close map"><X /></Button>
       </div>
     </header>
@@ -37,7 +36,7 @@ export function ExpandedMinimap() {
     </div>
     <footer className="expanded-minimap__footer">
       <MinimapStatus status={status} />
-      <span>{follow ? "FOLLOWING PLAYER" : "FREE PAN · RECENTER TO FOLLOW"}</span>
+      <span>{follow ? "ĐANG THEO NGƯỜI CHƠI" : "ĐANG XEM TỰ DO"}</span>
       <span className="font-mono">{position ? `X ${position.position.x.toFixed(1)}  Y ${position.position.y.toFixed(1)}  Z ${position.position.z.toFixed(1)}` : "COORDINATES —"}</span>
     </footer>
   </section>;
