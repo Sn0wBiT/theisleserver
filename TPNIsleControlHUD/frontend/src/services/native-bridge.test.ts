@@ -5,7 +5,7 @@ import { useOverlayStore } from "@/stores/overlay.store";
 
 describe("native runtime bootstrap", () => {
   beforeEach(() => {
-    useOverlayStore.setState({ runtimeReady: false, runtimeError: null, gameProcessConnected: false, gameForeground: false, shuttingDown: false, interactive: false, panel: "none" });
+    useOverlayStore.setState({ runtimeReady: false, runtimeError: null, gameProcessConnected: false, gameForeground: false, shuttingDown: false, interactive: false, panel: "none", expandedMinimapOpen: false });
   });
 
   it("waits for and validates delayed native configuration", () => {
@@ -28,7 +28,7 @@ describe("native runtime bootstrap", () => {
   it("opens the expanded minimap requested by the native map hotkey", () => {
     handleNativeEvent({ type: "overlay.modeChanged", mode: "interactive" });
     handleNativeEvent({ type: "overlay.openPanel", panel: "minimap" });
-    expect(useOverlayStore.getState()).toMatchObject({ interactive: true, panel: "minimap" });
+    expect(useOverlayStore.getState()).toMatchObject({ interactive: true, panel: "none", expandedMinimapOpen: true });
   });
 
   it("opens browser login against the configured API origin", () => {

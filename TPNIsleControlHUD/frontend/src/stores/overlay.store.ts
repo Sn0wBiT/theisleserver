@@ -10,6 +10,7 @@ type OverlayState = {
   runtimeReady: boolean;
   runtimeError: string | null;
   panel: Panel;
+  expandedMinimapOpen: boolean;
   setInteractive(interactive: boolean): void;
   setGameProcessConnected(connected: boolean): void;
   setGameForeground(foreground: boolean): void;
@@ -27,11 +28,18 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   runtimeReady: typeof window === "undefined" || !window.chrome?.webview,
   runtimeError: null,
   panel: "none",
-  setInteractive: (interactive) => set({ interactive, panel: interactive ? "quests" : "none" }),
+  expandedMinimapOpen: false,
+  setInteractive: (interactive) => set({
+    interactive,
+    panel: interactive ? "quests" : "none",
+    expandedMinimapOpen: false,
+  }),
   setGameProcessConnected: (gameProcessConnected) => set({ gameProcessConnected }),
   setGameForeground: (gameForeground) => set({ gameForeground }),
   setRuntimeState: (runtimeReady, runtimeError) => set({ runtimeReady, runtimeError: runtimeError ?? null }),
   setShuttingDown: (shuttingDown) => set({ shuttingDown }),
-  openPanel: (panel) => set({ panel }),
-  closePanel: () => set({ panel: "none" }),
+  openPanel: (panel) => set(panel === "minimap"
+    ? { panel: "none", expandedMinimapOpen: true }
+    : { panel }),
+  closePanel: () => set({ panel: "none", expandedMinimapOpen: false }),
 }));

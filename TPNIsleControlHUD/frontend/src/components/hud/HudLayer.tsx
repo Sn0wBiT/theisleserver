@@ -5,6 +5,7 @@ import { useOverlayStore } from "@/stores/overlay.store";
 
 export function HudLayer() {
   const interactive = useOverlayStore((state) => state.interactive);
+  const expandedMinimapOpen = useOverlayStore((state) => state.expandedMinimapOpen);
   const setInteractive = useOverlayStore((state) => state.setInteractive);
   const openPanel = useOverlayStore((state) => state.openPanel);
   
@@ -21,9 +22,11 @@ export function HudLayer() {
 
   return (
     <div className="absolute inset-0 pointer-events-none">
-      <div className={interactive ? "pointer-events-auto" : "pointer-events-none"}>
-        <CompactMinimap />
-      </div>
+      {!expandedMinimapOpen && (
+        <div className={interactive ? "pointer-events-auto" : "pointer-events-none"}>
+          <CompactMinimap />
+        </div>
+      )}
       {/* Menus */}
       <button
         type="button"
