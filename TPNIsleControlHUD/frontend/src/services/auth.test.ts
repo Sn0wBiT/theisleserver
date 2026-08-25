@@ -20,13 +20,20 @@ describe("HUD session storage", () => {
     expect(values.size).toBe(1);
   });
 
-  it("shares concurrent refreshes and clears rejected sessions", async () => {
+  it("shares concurrent refreshes and clears authoritatively rejected sessions", async () => {
     storeSession({ ...session, refreshToken: "refresh-1" });
     let calls = 0;
     const refresh = async () => { calls += 1; await Promise.resolve(); return session; };
     const [first, second] = await Promise.all([sharedRefresh(refresh), sharedRefresh(refresh)]);
     expect(calls).toBe(1); expect(first).toEqual(second); expect(getRefreshToken()).toBe("refresh-2");
-    await sharedRefresh(async () => { throw new Error("revoked"); });
+    await sharedRefresh(async () => { throw Object.assign(new Error("revoked"), { status: 401 }); });
     expect(getAccessToken()).toBeNull(); expect(getRefreshToken()).toBeNull();
+  });
+
+  it("preserves refresh credentials when configuration or network refresh fails", async () => {
+    storeSession({ ...session, refreshToken: "keep-me" });
+    await sharedRefresh(async () => { throw Object.assign(new Error("offline"), { status: 0 }); });
+    expect(getAccessToken()).toBe("access");
+    expect(getRefreshToken()).toBe("keep-me");
   });
 });

@@ -33,3 +33,10 @@ export const claimQuestResultSchema = z.object({
 });
 export type ClaimQuestResult = z.infer<typeof claimQuestResultSchema>;
 
+export const acceptQuestResultSchema = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+  requiredGrowth: z.number().optional(),
+  currentGrowth: z.number().nullable().optional(),
+});
+export type AcceptQuestResult = z.infer<typeof acceptQuestResultSchema>;

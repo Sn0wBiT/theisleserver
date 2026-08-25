@@ -22,7 +22,8 @@ private:
     void HandleWebCommand(const std::wstring& type, bool value);
     void AddTrayIcon();
     void RemoveTrayIcon();
-    void ShowTrayMenu();
+    void ShowTrayMenu(POINT anchor);
+    void SendFrontendState();
     void Reconnect();
     void Shutdown();
     void LogOverlayState(const wchar_t* action, const wchar_t* reason);
@@ -41,4 +42,3 @@ private:
     std::wstring lastOverlayDiagnostic_;
     NOTIFYICONDATAW trayIcon_{};
 };
-

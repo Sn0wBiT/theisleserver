@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   async headers() {
     const corsHeaders = [
-        { key: "Access-Control-Allow-Origin", value: process.env.HUD_ORIGIN ?? "http://localhost:5173" },
+        { key: "Access-Control-Allow-Origin", value: process.env.HUD_ORIGIN ?? "http://dino.tpnrp.local" },
         { key: "Access-Control-Allow-Credentials", value: "true" },
         { key: "Access-Control-Allow-Headers", value: "Authorization, Content-Type" },
         { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },

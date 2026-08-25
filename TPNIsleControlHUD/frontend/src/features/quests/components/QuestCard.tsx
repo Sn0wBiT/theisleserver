@@ -3,12 +3,18 @@ import { Button } from "@/components/ui/button";
 import { QuestProgress } from "@/features/quests/components/QuestProgress";
 import { QuestReward } from "@/features/quests/components/QuestReward";
 import { useClaimQuest } from "@/features/quests/hooks/useClaimQuest";
+import { useAcceptQuest } from "@/features/quests/hooks/useAcceptQuest";
 import type { Quest } from "@/features/quests/types";
+import { questAction } from "@/features/quests/quest-state";
 
 export function QuestCard({ quest }: { quest: Quest }) {
   const claim = useClaimQuest();
-  const canClaim = quest.completed && !quest.claimed;
-  const status = quest.claimed ? "Đã nhận" : quest.completed ? "Hoàn thành" : "Đang thực hiện";
+  const accept = useAcceptQuest();
+  const action = questAction(quest);
+  const accepted = quest.accepted === true;
+  const canAccept = action === "accept";
+  const canClaim = action === "claim";
+  const status = action === "claimed" ? "Đã nhận thưởng" : action === "accept" ? "Có thể nhận" : action === "ineligible" ? "Chưa đủ điều kiện" : action === "claim" ? "Có thể nhận thưởng" : "Đang thực hiện";
   const typeLabels: Record<string, string> = {
     play_seconds: "Thời gian sinh tồn",
     reach_growth: "Tăng trưởng",
@@ -32,12 +38,12 @@ export function QuestCard({ quest }: { quest: Quest }) {
         <QuestReward tokens={quest.rewardTokens} />
         <Button
           className="h-8 min-w-24"
-          variant={canClaim ? "default" : "ghost"}
-          disabled={!canClaim || claim.isPending}
-          onClick={() => claim.mutate(quest.id)}
+          variant={canClaim || canAccept ? "default" : "ghost"}
+          disabled={(!canClaim && !canAccept) || claim.isPending || accept.isPending}
+          onClick={() => canAccept ? accept.mutate(quest.id) : claim.mutate(quest.id)}
         >
-          {!quest.completed && <LockKeyhole className="size-3" />}
-          {claim.isPending && claim.variables === quest.id ? "Đang nhận…" : quest.claimed ? "Đã nhận" : "Nhận thưởng"}
+          {(!accepted || !quest.completed) && !canAccept && <LockKeyhole className="size-3" />}
+          {accept.isPending && accept.variables === quest.id ? "Đang nhận…" : claim.isPending && claim.variables === quest.id ? "Đang nhận thưởng…" : quest.claimed ? "Đã nhận thưởng" : canAccept ? "Nhận nhiệm vụ" : canClaim ? "Nhận thưởng" : accepted ? "Chưa hoàn thành" : "Chưa thể nhận"}
         </Button>
       </div>
     </article>

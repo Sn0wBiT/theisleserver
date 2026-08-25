@@ -491,6 +491,7 @@ void WebViewHost::HandleMessage(const std::wstring& json) {
     } else if (hasType(L"app.getVersion")) {
         if (statusHandler_) statusHandler_(L"frontend bridge ready");
         PostJson(std::wstring(L"{\"type\":\"app.config\",\"apiUrl\":\"") + apiOrigin_ + L"\"}");
+        if (commandHandler_) commandHandler_(L"app.frontendReady", false);
     } else if (hasType(L"app.openLogin")) {
         const std::wregex codePattern(LR"regex("browserCode"\s*:\s*"([A-Za-z0-9_-]{32})")regex");
         const std::wregex productionOrigin(LR"(^https://[A-Za-z0-9.-]+(?::[0-9]+)?$)");

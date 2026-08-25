@@ -1,40 +1,64 @@
-import { useEffect, useState } from "react";
-import { consumePositionStream, reconnectDelay } from "./stream";
+import { createContext, createElement, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
+import { useOverlayStore } from "@/stores/overlay.store";
+import { consumeAuthenticatedPositionStream, reconnectDelay } from "./stream";
 import { isPositionStale, POSITION_STALE_AFTER_MS } from "./state";
 import type { PositionEvent, StreamStatus } from "./types";
 
-export function usePositionStream() {
+type PositionStreamState = { position: PositionEvent | null; status: StreamStatus; playerPresent: boolean };
+const PositionStreamContext = createContext<PositionStreamState | null>(null);
+
+export function PositionStreamProvider({ children }: PropsWithChildren) {
   const [position, setPosition] = useState<PositionEvent | null>(null);
   const [status, setStatus] = useState<StreamStatus>("waiting");
+  const enabled = useOverlayStore((state) => state.gameProcessConnected && !state.shuttingDown);
 
   useEffect(() => {
-    const controller = new AbortController();
+    if (!enabled) {
+      setPosition(null);
+      setStatus("waiting");
+      return;
+    }
+    let stopped = false;
+    let activeController: AbortController | null = null;
     let attempt = 0;
     let staleTimer: number | undefined;
     let reconnectTimer: number | undefined;
 
     const connect = async () => {
+      if (stopped) return;
+      const controller = new AbortController();
+      activeController = controller;
       if (attempt > 0) setStatus("reconnecting");
       try {
-        const response = await consumePositionStream(controller.signal, (event) => {
+        const response = await consumeAuthenticatedPositionStream(controller.signal, (event) => {
           attempt = 0;
           setPosition(event);
           window.clearTimeout(staleTimer);
           if (isPositionStale(event.updatedAt)) {
+            setPosition(null);
             setStatus("stale");
+            controller.abort();
           } else {
             setStatus("connected");
             staleTimer = window.setTimeout(
-              () => setStatus("stale"),
+              () => {
+                setPosition(null);
+                setStatus("stale");
+                controller.abort();
+              },
               event.updatedAt + POSITION_STALE_AFTER_MS - Date.now(),
             );
           }
         });
-        if (controller.signal.aborted) return;
-        if (response.status === 401) return setStatus("unauthorized");
-        if (!response.ok) setStatus("unavailable");
+        if (stopped) return;
+        if (response.status === 401) {
+          setPosition(null);
+          return setStatus("unauthorized");
+        }
+        if (!response.ok) { setPosition(null); setStatus("unavailable"); }
       } catch {
-        if (controller.signal.aborted) return;
+        if (stopped) return;
+        setPosition(null);
       }
       const delay = reconnectDelay(attempt++);
       setStatus("reconnecting");
@@ -42,11 +66,19 @@ export function usePositionStream() {
     };
     void connect();
     return () => {
-      controller.abort();
+      stopped = true;
+      activeController?.abort();
       window.clearTimeout(staleTimer);
       window.clearTimeout(reconnectTimer);
     };
-  }, []);
+  }, [enabled]);
 
-  return { position, status };
+  const value = useMemo(() => ({ position, status, playerPresent: position !== null && status === "connected" }), [position, status]);
+  return createElement(PositionStreamContext.Provider, { value }, children);
+}
+
+export function usePositionStream() {
+  const value = useContext(PositionStreamContext);
+  if (!value) throw new Error("usePositionStream must be used inside PositionStreamProvider");
+  return value;
 }

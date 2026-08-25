@@ -1,9 +1,10 @@
 import { request } from "@/services/api";
 import { mockQuestApi } from "@/features/quests/api/quests.mock";
-import { claimQuestResultSchema, questResponseSchema, type ClaimQuestResult, type QuestResponse } from "@/features/quests/types";
+import { acceptQuestResultSchema, claimQuestResultSchema, questResponseSchema, type AcceptQuestResult, type ClaimQuestResult, type QuestResponse } from "@/features/quests/types";
 
 export interface QuestApi {
   getQuests(signal?: AbortSignal): Promise<QuestResponse>;
+  acceptQuest(id: string): Promise<AcceptQuestResult>;
   claimQuest(id: string): Promise<ClaimQuestResult>;
 }
 
@@ -13,6 +14,9 @@ const nextQuestApi: QuestApi = {
   },
   async claimQuest(id) {
     return claimQuestResultSchema.parse(await request<unknown>(`/api/quests/${encodeURIComponent(id)}/claim`, { method: "POST" }));
+  },
+  async acceptQuest(id) {
+    return acceptQuestResultSchema.parse(await request<unknown>(`/api/quests/${encodeURIComponent(id)}/accept`, { method: "POST" }));
   },
 };
 

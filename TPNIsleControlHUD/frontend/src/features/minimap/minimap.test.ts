@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { calibrationSchema } from "./types";
 import { imagePointToLeaflet, worldToMap } from "./calibration";
-import { parsePositionEvent, reconnectDelay } from "./stream";
+import { consumeAuthenticatedPositionStream, parsePositionEvent, reconnectDelay } from "./stream";
+import { clearSession, storeSession } from "@/services/auth";
+import { setApiUrl } from "@/services/api";
 import { followAfterAction, isPositionStale } from "./state";
 import { isMinimapFrame } from "./frame.store";
 
@@ -58,5 +60,30 @@ describe("position stream", () => {
     expect(isMinimapFrame("square")).toBe(true);
     expect(isMinimapFrame("circle")).toBe(true);
     expect(isMinimapFrame("hexagon")).toBe(false);
+  });
+
+  it("refreshes an SSE 401 once and retries with the rotated access token", async () => {
+    const values = new Map<string, string>();
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    } });
+    clearSession();
+    setApiUrl("https://api.example");
+    storeSession({ player: { steamId: "76561198000000000", displayName: "Rex", avatarUrl: null }, accessToken: "old", refreshToken: "refresh", expiresIn: 900 });
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      const auth = new Headers(init?.headers).get("Authorization") ?? "";
+      calls.push(`${url}:${auth}`);
+      if (url.endsWith("/refresh")) return Response.json({ player: { steamId: "76561198000000000", displayName: "Rex", avatarUrl: null }, accessToken: "new", refreshToken: "rotated", expiresIn: 900 });
+      if (auth === "Bearer old") return new Response(null, { status: 401 });
+      return new Response("", { status: 200, headers: { "Content-Type": "text/event-stream" } });
+    }));
+    const response = await consumeAuthenticatedPositionStream(new AbortController().signal, () => undefined);
+    expect(response.status).toBe(200);
+    expect(calls.some((call) => call.endsWith(":Bearer new"))).toBe(true);
+    vi.unstubAllGlobals();
   });
 });

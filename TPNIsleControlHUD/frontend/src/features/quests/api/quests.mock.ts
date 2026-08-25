@@ -14,7 +14,8 @@ let state: QuestResponse = {
       rewardTokens: 100,
       completed: false,
       claimed: false,
-      accepted: true,
+      accepted: false,
+      canAccept: true,
       window: "2026-08-24",
     },
     {
@@ -149,5 +150,14 @@ export const mockQuestApi: QuestApi = {
     quest.claimed = true;
     state = { ...state, tokenBalance: state.tokenBalance + quest.rewardTokens };
     return { ok: true, rewardTokens: quest.rewardTokens, tokenBalance: state.tokenBalance };
+  },
+  async acceptQuest(id) {
+    await wait();
+    const quest = state.quests.find((item) => item.id === id);
+    if (!quest) throw new Error("Không tìm thấy nhiệm vụ");
+    if (quest.accepted) throw new Error("Nhiệm vụ này đã được nhận");
+    if (!quest.canAccept) throw new Error("Chưa đủ điều kiện nhận nhiệm vụ");
+    quest.accepted = true;
+    return { ok: true };
   },
 };

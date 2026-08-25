@@ -23,15 +23,17 @@ if ($cmakeCommand) {
 if (-not $cmake) {
     throw "CMake was not found. Install the Visual Studio C++ CMake tools or add cmake.exe to PATH."
 }
-## START Build Frontend
+Write-Host "Installing locked frontend dependencies..."
+& npm --prefix $frontendRoot ci
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-# Write-Host "Building TPN Isle Control HUD frontend..."
-# & npm --prefix $frontendRoot ci
-# if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Write-Host "Testing TPN Isle Control HUD frontend..."
+& npm --prefix $frontendRoot test
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-# & npm --prefix $frontendRoot run build
-# if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-## END
+Write-Host "Building TPN Isle Control HUD frontend..."
+& npm --prefix $frontendRoot run build
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "Configuring TPN Isle Control HUD native application..."
 & $cmake -S $hudRoot -B $buildRoot -A x64

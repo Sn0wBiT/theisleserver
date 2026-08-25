@@ -1,5 +1,5 @@
-import { getAccessToken } from "@/services/auth";
-import { apiUrl } from "@/services/api";
+import { getAccessToken, sharedRefresh, type AuthResult } from "@/services/auth";
+import { apiUrl, rawRequest } from "@/services/api";
 import { positionEventSchema, type PositionEvent } from "./types";
 
 export const reconnectDelay = (attempt: number) => [1000, 2000, 5000, 10000][Math.min(attempt, 3)];
@@ -40,5 +40,16 @@ export async function consumePositionStream(
       boundary = buffer.indexOf("\n\n");
     }
   }
+  return response;
+}
+
+export async function consumeAuthenticatedPositionStream(signal: AbortSignal, onEvent: (event: PositionEvent) => void) {
+  let response = await consumePositionStream(signal, onEvent);
+  if (response.status !== 401 || signal.aborted) return response;
+  const refreshed = await sharedRefresh((refreshToken) => rawRequest<AuthResult>("/api/hud-auth/refresh", {
+    method: "POST", body: JSON.stringify({ refreshToken }),
+  }));
+  if (!refreshed || signal.aborted) return response;
+  response = await consumePositionStream(signal, onEvent);
   return response;
 }

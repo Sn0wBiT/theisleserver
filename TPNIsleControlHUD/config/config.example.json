@@ -1,10 +1,12 @@
 {
   "development": false,
   "frontendDevUrl": "http://localhost:5173",
-  "apiOrigin": "http://localhost:3000",
+  "apiOrigin": "https://api.invalid",
   "overlayHotkey": "F6",
   "gameExecutables": [
-    "TheIsleClient-Win64-Shipping.exe"
+    "TheIsleClient-Win64-Shipping.exe",
+    "TheIsle-Win64-Shipping.exe",
+    "TheIsle.exe"
   ],
-  "enableDevTools": true
+  "enableDevTools": false
 }

@@ -1,15 +1,39 @@
-import { CircleAlert, RefreshCw, X } from "lucide-react";
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { CircleAlert, RefreshCw, RotateCcw, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { QuestTabs } from "@/features/quests/components/QuestTabs";
 import { useQuests } from "@/features/quests/hooks/useQuests";
 import { closeInteractiveMode } from "@/services/native-bridge";
+import { clampPanelPosition, loadPanelPosition, savePanelPosition, type PanelPosition } from "@/features/quests/panel-position";
 
 export function QuestPanel() {
   const quests = useQuests();
   const panelRef = useRef<HTMLElement>(null);
   const dragRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number; rect: DOMRect } | null>(null);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState<PanelPosition>({ x: 0, y: 0 });
+  const positionRef = useRef(position);
+  positionRef.current = position;
+
+  useLayoutEffect(() => {
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPosition(clampPanelPosition(loadPanelPosition(localStorage), rect));
+  }, []);
+
+  useEffect(() => {
+    const clampToViewport = () => {
+      const rect = panelRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const current = positionRef.current;
+      const baseRect = { left: rect.left - current.x, right: rect.right - current.x, top: rect.top - current.y, bottom: rect.bottom - current.y };
+      const clamped = clampPanelPosition(current, baseRect);
+      positionRef.current = clamped;
+      setPosition(clamped);
+      savePanelPosition(localStorage, clamped);
+    };
+    window.addEventListener("resize", clampToViewport);
+    return () => window.removeEventListener("resize", clampToViewport);
+  }, []);
 
   function startDrag(event: ReactPointerEvent<HTMLElement>) {
     const rect = panelRef.current?.getBoundingClientRect();
@@ -23,12 +47,21 @@ export function QuestPanel() {
     if (!start) return;
     const deltaX = Math.min(window.innerWidth - start.rect.right, Math.max(-start.rect.left, event.clientX - start.pointerX));
     const deltaY = Math.min(window.innerHeight - start.rect.bottom, Math.max(-start.rect.top, event.clientY - start.pointerY));
-    setPosition({ x: start.x + deltaX, y: start.y + deltaY });
+    const next = { x: start.x + deltaX, y: start.y + deltaY };
+    positionRef.current = next;
+    setPosition(next);
   }
 
   function stopDrag(event: ReactPointerEvent<HTMLElement>) {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     dragRef.current = null;
+    savePanelPosition(localStorage, positionRef.current);
+  }
+
+  function resetPosition() {
+    const next = { x: 0, y: 0 };
+    setPosition(next);
+    savePanelPosition(localStorage, next);
   }
 
   return (
@@ -55,6 +88,9 @@ export function QuestPanel() {
             <span className="block text-[9px] uppercase tracking-widest text-ash">Số dư</span>
             <strong className="font-mono text-sm text-amber">{quests.data?.tokenBalance.toLocaleString("vi-VN") ?? "—"}</strong>
           </div>
+          <Button className="cursor-pointer" aria-label="Đặt lại vị trí bảng nhiệm vụ" size="icon" variant="ghost" onPointerDown={(event) => event.stopPropagation()} onClick={resetPosition}>
+            <RotateCcw className="size-4" />
+          </Button>
           <Button
             className="cursor-pointer"
             aria-label="Đóng bảng nhiệm vụ"

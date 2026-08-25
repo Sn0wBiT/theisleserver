@@ -1,6 +1,10 @@
 import { resolveApiIdentity } from "@/lib/hud-auth";
 import { acceptQuest } from "@/lib/quests";
 
+export function OPTIONS() {
+  return new Response(null, { status: 204 });
+}
+
 export async function POST(request: Request, context: RouteContext<"/api/quests/[questId]/accept">) {
   const session = await resolveApiIdentity(request);
   if (!session) return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });

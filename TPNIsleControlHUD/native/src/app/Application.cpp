@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <fstream>
 #include <sstream>
+#include <windowsx.h>
 
 namespace {
 constexpr UINT kTrayCallbackMessage = WM_APP + 1;
@@ -33,7 +34,9 @@ int Application::Run() {
             SetMode(mode_ == OverlayMode::Hud ? OverlayMode::Interactive : OverlayMode::Hud);
         } else if (message.message == kTrayCallbackMessage) {
             const UINT action = LOWORD(message.lParam);
-            if (action == WM_CONTEXTMENU || action == WM_RBUTTONDOWN || action == WM_RBUTTONUP) ShowTrayMenu();
+            if (action == WM_CONTEXTMENU) {
+                ShowTrayMenu(POINT{GET_X_LPARAM(message.wParam), GET_Y_LPARAM(message.wParam)});
+            }
             else if (action == WM_LBUTTONDBLCLK) Reconnect();
         } else if (message.message == WM_TIMER && message.hwnd == overlay_.GetHandle() &&
                    message.wParam == kTrackerTimer) {
@@ -134,7 +137,18 @@ void Application::SetMode(OverlayMode mode) {
 void Application::HandleWebCommand(const std::wstring& type, bool value) {
     if (type == L"overlay.closePanel") SetMode(OverlayMode::Hud);
     else if (type == L"overlay.setInteractive") SetMode(value ? OverlayMode::Interactive : OverlayMode::Hud);
+    else if (type == L"app.frontendReady") SendFrontendState();
     else if (type == L"app.exit") PostMessageW(overlay_.GetHandle(), WM_CLOSE, 0, 0);
+}
+
+void Application::SendFrontendState() {
+    webview_.PostJson(mode_ == OverlayMode::Interactive
+        ? L"{\"type\":\"overlay.modeChanged\",\"mode\":\"interactive\"}"
+        : L"{\"type\":\"overlay.modeChanged\",\"mode\":\"hud\"}");
+    webview_.PostJson(gameConnected_ ? L"{\"type\":\"game.connected\"}" : L"{\"type\":\"game.disconnected\"}");
+    webview_.PostJson(gameForeground_
+        ? L"{\"type\":\"game.foregroundChanged\",\"foreground\":true}"
+        : L"{\"type\":\"game.foregroundChanged\",\"foreground\":false}");
 }
 
 void Application::AddTrayIcon() {
@@ -160,30 +174,44 @@ void Application::RemoveTrayIcon() {
     trayIcon_ = {};
 }
 
-void Application::ShowTrayMenu() {
+void Application::ShowTrayMenu(POINT anchor) {
     Log(L"tray menu requested");
+    if (anchor.x == -1 && anchor.y == -1 && !GetCursorPos(&anchor)) {
+        Log(L"tray menu anchor lookup failed");
+        return;
+    }
     HMENU menu = CreatePopupMenu();
-    if (!menu) return;
-    AppendMenuW(menu, MF_STRING, kReconnectCommand, L"Reconnect to Next.js");
-    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, kExitCommand, L"Exit");
-    POINT cursor{};
-    GetCursorPos(&cursor);
-    SetForegroundWindow(overlay_.GetHandle());
-    const UINT command = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
-                                        cursor.x, cursor.y, 0, overlay_.GetHandle(), nullptr);
+    if (!menu) { Log(L"tray menu creation failed"); return; }
+    if (!AppendMenuW(menu, MF_STRING, kReconnectCommand, L"Reconnect HUD") ||
+        !AppendMenuW(menu, MF_SEPARATOR, 0, nullptr) ||
+        !AppendMenuW(menu, MF_STRING, kExitCommand, L"Exit")) {
+        Log(L"tray menu item creation failed");
+        DestroyMenu(menu);
+        return;
+    }
+    const HWND previousForeground = GetForegroundWindow();
+    if (!SetForegroundWindow(overlay_.GetHandle())) Log(L"tray menu owner foreground request failed");
+    SetLastError(ERROR_SUCCESS);
+    const UINT command = TrackPopupMenuEx(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
+                                          anchor.x, anchor.y, overlay_.GetHandle(), nullptr);
+    if (!command && GetLastError() != ERROR_SUCCESS) Log(L"tray menu display failed");
     DestroyMenu(menu);
     PostMessageW(overlay_.GetHandle(), WM_NULL, 0, 0);
+    if (!Shell_NotifyIconW(NIM_SETFOCUS, &trayIcon_)) Log(L"tray icon focus restore failed");
     if (command == kReconnectCommand) Reconnect();
     else if (command == kExitCommand) PostMessageW(overlay_.GetHandle(), WM_CLOSE, 0, 0);
+    const HWND focusTarget = (previousForeground && IsWindow(previousForeground))
+        ? previousForeground : tracker_.GetWindow();
+    if (focusTarget) SetForegroundWindow(focusTarget);
 }
 
 void Application::Reconnect() {
-    Log(webview_.Reload() ? L"Next.js reconnect requested" : L"Next.js reconnect failed");
+    Log(webview_.Reload() ? L"HUD reconnect requested" : L"HUD reconnect failed");
 }
 
 void Application::Shutdown() {
     Log(L"shutdown");
+    webview_.PostJson(L"{\"type\":\"app.shuttingDown\"}");
     KillTimer(overlay_.GetHandle(), kTrackerTimer);
     KillTimer(overlay_.GetHandle(), kCefPumpTimer);
     input_.Unregister(overlay_.GetHandle());

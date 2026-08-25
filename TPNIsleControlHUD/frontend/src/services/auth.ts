@@ -23,7 +23,10 @@ export function sharedRefresh(run: (token: string) => Promise<AuthResult>) {
   const token = getRefreshToken();
   if (!token) return Promise.resolve(null);
   if (!refreshOperation) {
-    refreshOperation = run(token).then((result) => { storeSession(result); return result; }).catch(() => { clearSession(); return null; }).finally(() => { refreshOperation = null; });
+    refreshOperation = run(token).then((result) => { storeSession(result); return result; }).catch((error: { status?: number }) => {
+      if (error?.status === 400 || error?.status === 401) clearSession();
+      return null;
+    }).finally(() => { refreshOperation = null; });
   }
   return refreshOperation;
 }
