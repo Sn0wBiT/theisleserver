@@ -30,7 +30,7 @@ export function HudLayer() {
   return (
     <div className="absolute inset-0 pointer-events-none">
       {/* Menus */}
-      <div id="btn-list" className="relative z-100 left-4">
+      <div id="btn-list" className="relative z-100 left-4 space-y-2">
         {/* Map */}
         <button
           type="button"
