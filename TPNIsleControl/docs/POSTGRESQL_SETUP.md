@@ -33,9 +33,9 @@ CREATE ROLE tpnislecontrol LOGIN PASSWORD 'REPLACE_WITH_A_LONG_RANDOM_PASSWORD';
 CREATE DATABASE tpnislecontrol OWNER tpnislecontrol;
 ```
 
-The bridge automatically applies the idempotent schema in
-`bridge\sql\001_initial.sql` when it connects, so a separate migration command is
-not required. The database user owns only this application database.
+The bridge applies the single idempotent schema in
+`bridge\sql\001_initial.sql` before opening its HTTP listener. The database user
+owns only this application database.
 
 ## 3. Install bridge dependencies
 
@@ -54,7 +54,6 @@ Set these fields in `bridge\config.json`:
 
 ```json
 {
-  "storage": "postgres",
   "databasePoolSize": 10,
   "snapshotFlushMs": 5000
 }
@@ -64,26 +63,18 @@ Keep the password out of `config.json`. Set the connection URL in the account th
 runs the game server:
 
 ```bat
-setx TPNISLECONTROL_DATABASE_URL "postgresql://tpnislecontrol:URL_ENCODED_PASSWORD@127.0.0.1:5432/tpnislecontrol"
+setx DATABASE_URL "postgresql://tpnislecontrol:URL_ENCODED_PASSWORD@127.0.0.1:5432/tpnislecontrol"
 ```
 
 Restart the server process after `setx`; it does not change already-running
 processes. Characters such as `@`, `:`, `/`, `?`, and `#` in the password must be
-URL-encoded. Alternatively, `databaseUrl` can be placed in `config.json`, but that
-file then contains a database credential and must not be committed or shared.
+URL-encoded. `DATABASE_URL` is the only supported bridge database configuration.
 
-## 5. First start and JSON migration
+## 5. First start
 
-Start the bridge normally. On its first PostgreSQL start it will:
-
-1. Connect and create/update the required tables.
-2. Import the configured `stateFile` (`bridge\data\state.json` by default), if present.
-3. Record a `json_import_complete` marker so stale JSON cannot overwrite newer
-   PostgreSQL state on later restarts.
-4. Log `[store] PostgreSQL connected` before opening the HTTP listener.
-
-The JSON file is retained as a recovery copy but is no longer written while
-`storage` is `postgres`. Back it up, then archive it after verifying the import.
+Start the bridge normally. It checks the PostgreSQL connection and applies the
+single schema before opening the listener. There is no local state file, JSON
+import, or JSON rollback path.
 
 ## 6. Verify the installation
 
@@ -93,7 +84,8 @@ Check the bridge console and health endpoint:
 curl http://127.0.0.1:31990/health
 ```
 
-The response must contain `"storage": "postgres"`. In `psql`, verify rows:
+The response must contain `"storage": "postgresql"` and
+`"databaseConnected": true`. In `psql`, verify rows:
 
 ```sql
 \c tpnislecontrol
@@ -107,10 +99,7 @@ Accept and complete a test quest, restart only the bridge, and verify that quest
 progress and the token balance remain available.
 
 Each dinosaur is keyed by `(steam_id, dinosaur_id)`. The snapshot producer must
-send a stable `dinosaurId` to distinguish slots. Existing snapshots do not yet
-contain such an identifier and are imported into a `legacy` dinosaur slot; pawn
-memory addresses are deliberately not used because they change across processes
-and reconnects.
+send a stable `dinosaurId` to distinguish slots.
 
 ## Operations and performance
 
@@ -129,9 +118,8 @@ Example backup:
 pg_dump -Fc -d "postgresql://tpnislecontrol@127.0.0.1:5432/tpnislecontrol" -f D:\Backups\tpnislecontrol.dump
 ```
 
-## Rollback
+## Restore
 
-To temporarily return to the original file store, stop the bridge, change
-`"storage"` to `"json"`, and start it again. PostgreSQL changes made after the
-initial import are not copied back to `state.json`, so this is an operational
-fallback, not a reverse migration.
+Restore a PostgreSQL custom-format dump with `pg_restore` while the services are
+stopped. NDJSON is only a game transport fallback; it is not a backup or durable
+store.

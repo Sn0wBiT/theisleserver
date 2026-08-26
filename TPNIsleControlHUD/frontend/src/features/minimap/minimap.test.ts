@@ -63,12 +63,6 @@ describe("position stream", () => {
   });
 
   it("refreshes an SSE 401 once and retries with the rotated access token", async () => {
-    const values = new Map<string, string>();
-    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => values.set(key, value),
-      removeItem: (key: string) => values.delete(key),
-    } });
     clearSession();
     setApiUrl("https://api.example");
     storeSession({ player: { steamId: "76561198000000000", displayName: "Rex", avatarUrl: null }, accessToken: "old", refreshToken: "refresh", expiresIn: 900 });

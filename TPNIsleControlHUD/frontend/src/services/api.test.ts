@@ -2,17 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { clearSession, storeSession } from "./auth";
 import { request, setApiUrl, validateApiUrl } from "./api";
 
-const values = new Map<string, string>();
-Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
-  getItem: (key: string) => values.get(key) ?? null,
-  setItem: (key: string, value: string) => values.set(key, value),
-  removeItem: (key: string) => values.delete(key),
-} });
-
 const session = { player: { steamId: "76561198000000000", displayName: "Rex", avatarUrl: null }, accessToken: "old", refreshToken: "refresh", expiresIn: 900 };
 
 describe("runtime API and refresh", () => {
-  beforeEach(() => { values.clear(); clearSession(); setApiUrl("https://hud-api.example"); vi.restoreAllMocks(); });
+  beforeEach(() => { clearSession(); setApiUrl("https://hud-api.example"); vi.restoreAllMocks(); });
 
   it("accepts origins and rejects paths, script schemes, and malformed values", () => {
     expect(validateApiUrl("https://api.example/")).toBe("https://api.example");

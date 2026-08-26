@@ -3,7 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { JsonStore } from "./store.js";
 import { PostgresStore } from "./postgres-store.js";
 import { QuestEngine } from "./quest-engine.js";
 import { formatQuestMessages } from "./quest-message.js";
@@ -28,28 +27,21 @@ const config = readJson(configPath);
 const quests = readJson(path.join(bridgeDir, "quests.json"));
 const aiDinosaurSpecies = new Set(readJson(path.join(bridgeDir, "ai-dinosaurs.json"))
   .map((species) => String(species).toLowerCase()));
-const stateFile = config.stateFile || path.join(bridgeDir, "data", "state.json");
-const storage = String(config.storage || "json").toLowerCase();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("PostgreSQL storage requires DATABASE_URL. The bridge applies bridge/sql/001_initial.sql before startup.");
+  process.exit(1);
+}
 let store;
-
-if (storage === "postgres") {
-  const connectionString = process.env.TPNISLECONTROL_DATABASE_URL || config.databaseUrl;
-  if (!connectionString) {
-    console.error("PostgreSQL storage requires TPNISLECONTROL_DATABASE_URL or config.databaseUrl.");
-    process.exit(1);
-  }
+try {
   store = await PostgresStore.connect({
     connectionString,
     poolSize: config.databasePoolSize,
-    snapshotFlushMs: config.snapshotFlushMs,
-    importStateFile: stateFile
+    snapshotFlushMs: config.snapshotFlushMs
   });
   console.log("[store] PostgreSQL connected");
-} else if (storage === "json") {
-  store = new JsonStore(stateFile);
-  console.log(`[store] JSON state: ${stateFile}`);
-} else {
-  console.error(`Unsupported storage backend: ${storage}`);
+} catch (error) {
+  console.error("[store] PostgreSQL connection or schema check failed", error);
   process.exit(1);
 }
 const questEngine = new QuestEngine(quests, store);
@@ -69,6 +61,19 @@ const recentDamage = new Map(); // victim address -> { attackerAddr, ts }
 const recentAiDeaths = new Map(); // AI address -> death timestamp
 const pendingHttpCommands = new PendingCommandQueue();
 let lastHttpSyncAt = 0;
+
+const territoryMaintenance = setInterval(() => {
+  store.expireTerritories().catch((error) => console.error("[territory] maintenance failed", error));
+}, Math.max(30_000, Number(config.territoryMaintenanceMs || 60_000)));
+territoryMaintenance.unref?.();
+
+for (const [steam, snapshot] of Object.entries(store.data.lastSnapshots)) {
+  livePlayers.set(steam, { steam, ts: snapshot.ts, dinosaurId: snapshot.dinosaurId, growth: snapshot.growth, vitals: { hp: snapshot.hp }, addr: snapshot.addr, species: snapshot.species });
+}
+for (const position of Object.values(store.data.positions)) {
+  const current = livePlayers.get(position.steam) || { steam: position.steam };
+  livePlayers.set(position.steam, { ...current, dinosaurId: position.dinosaurId, pos: { x: position.x, y: position.y, z: position.z }, positionUpdatedAt: position.updatedAt });
+}
 
 // Persistent quest state already contains everything represented by old IPC
 // records. Begin existing append-only files at EOF so a bridge restart cannot
@@ -172,6 +177,8 @@ function processPosition(update) {
     pos: { x, y, z },
     positionUpdatedAt: updatedAt
   });
+
+  store.savePosition(steam, { dinosaurId: update.dinosaurId || livePlayers.get(steam)?.dinosaurId || "legacy", x, y, z }, updatedAt);
 
   publishPosition(steam, { x, y, z }, updatedAt);
 }
@@ -333,6 +340,20 @@ function processReviveRequest(e) {
   appendCommand({ verb: "revive", steam, args: {} });
 }
 
+function processTerritoryActivity(e) {
+  return store.recordTerritoryActivity({
+    eventId: e?.event_id || e?.eventId,
+    steam: e?.steam,
+    zoneId: e?.zone_id || e?.zoneId,
+    activityType: e?.activity_type || e?.activityType,
+    points: e?.points,
+    ts: e?.ts,
+    metadata: e?.metadata,
+    captureThreshold: config.territoryCaptureThreshold,
+    ownershipHours: config.territoryOwnershipHours
+  });
+}
+
 setInterval(() => {
   tail(eventsPath, (e) => {
     if (e.type === "snapshot") processSnapshot(e);
@@ -341,6 +362,7 @@ setInterval(() => {
     if (e.type === "help_request") processHelpRequest(e);
     if (e.type === "human_request") processHumanRequest(e);
     if (e.type === "revive_request") processReviveRequest(e);
+    if (e.type === "territory_activity") processTerritoryActivity(e).catch((error) => console.error("[territory] event failed", error));
     if (e.type === "damage_hit" || e.type === "ai_dinosaur_death") processNativeEvent(e);
   });
 
@@ -429,7 +451,9 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, {
       ok: true,
       players: livePlayers.size,
-      storage,
+      storage: "postgresql",
+      databaseConnected: await store.isHealthy(),
+      stale: Date.now() - lastHttpSyncAt > 30000,
       gameTransport: config.gameTransport || "file",
       httpConnected: Date.now() - lastHttpSyncAt < 15000,
       lastHttpSyncAt: lastHttpSyncAt || null,
@@ -449,7 +473,7 @@ const server = http.createServer(async (req, res) => {
       lastHttpSyncAt = Date.now();
       pendingHttpCommands.acknowledge(sync.acknowledgements);
 
-      store.batch(() => {
+      await store.batch(async () => {
         for (const snapshot of sync.snapshots) processSnapshot(snapshot);
         for (const position of sync.positions) processPosition(position);
         for (const event of sync.events) {
@@ -458,6 +482,7 @@ const server = http.createServer(async (req, res) => {
           if (event?.type === "help_request") processHelpRequest(event);
           if (event?.type === "human_request") processHumanRequest(event);
           if (event?.type === "revive_request") processReviveRequest(event);
+          if (event?.type === "territory_activity") await processTerritoryActivity(event);
           if (event?.type === "damage_hit" || event?.type === "ai_dinosaur_death") processNativeEvent(event);
         }
       });
@@ -573,7 +598,8 @@ let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[shutdown] ${signal}; flushing persistent state`);
+  clearInterval(territoryMaintenance);
+  console.log(`[shutdown] ${signal}; flushing PostgreSQL state`);
   try {
     await new Promise((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());

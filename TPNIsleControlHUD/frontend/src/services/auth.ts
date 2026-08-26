@@ -1,5 +1,5 @@
 let accessToken: string | null = null;
-const refreshKey = "tpn.hud.refreshToken";
+let refreshToken: string | null = null;
 let refreshOperation: Promise<AuthResult | null> | null = null;
 
 export type Player = { steamId: string; displayName: string; avatarUrl: string | null };
@@ -13,12 +13,12 @@ export function setAccessToken(token: string | null) {
   accessToken = token;
 }
 
-export function getRefreshToken() { return localStorage.getItem(refreshKey); }
+export function getRefreshToken() { return refreshToken; }
 export function storeSession(result: AuthResult) {
   accessToken = result.accessToken;
-  localStorage.setItem(refreshKey, result.refreshToken);
+  refreshToken = result.refreshToken;
 }
-export function clearSession() { accessToken = null; localStorage.removeItem(refreshKey); }
+export function clearSession() { accessToken = null; refreshToken = null; }
 export function sharedRefresh(run: (token: string) => Promise<AuthResult>) {
   const token = getRefreshToken();
   if (!token) return Promise.resolve(null);

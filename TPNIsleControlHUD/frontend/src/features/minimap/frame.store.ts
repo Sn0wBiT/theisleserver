@@ -1,16 +1,14 @@
 import { create } from "zustand";
 
 export type MinimapFrame = "square" | "circle";
-const STORAGE_KEY = "tpn-minimap-frame";
+let currentFrame: MinimapFrame = "circle";
 
 export function isMinimapFrame(value: unknown): value is MinimapFrame {
   return value === "square" || value === "circle";
 }
 
 function savedFrame(): MinimapFrame {
-  if (typeof window === "undefined") return "circle";
-  const value = window.localStorage.getItem(STORAGE_KEY);
-  return isMinimapFrame(value) ? value : "circle";
+  return currentFrame;
 }
 
 export const useMinimapFrameStore = create<{
@@ -19,7 +17,7 @@ export const useMinimapFrameStore = create<{
 }>((set) => ({
   frame: savedFrame(),
   setFrame: (frame) => {
-    window.localStorage.setItem(STORAGE_KEY, frame);
+    currentFrame = frame;
     set({ frame });
   },
 }));

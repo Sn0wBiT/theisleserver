@@ -4,10 +4,11 @@
   "apiToken": "CHANGE_ME",
   "gameToken": "",
   "gameTransport": "auto",
-  "storage": "postgres",
-  "databaseUrl": "",
   "databasePoolSize": 10,
   "snapshotFlushMs": 5000,
+  "territoryCaptureThreshold": 100,
+  "territoryOwnershipHours": 72,
+  "territoryMaintenanceMs": 60000,
   "modSavedDir": "C:\\theisleserver\\TheIsle\\Binaries\\Win64\\ue4ss\\Mods\\TPNIsleControl\\Saved",
   "pollMs": 1000,
   "combatWindowSec": 20

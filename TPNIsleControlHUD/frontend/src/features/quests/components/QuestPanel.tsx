@@ -17,7 +17,7 @@ export function QuestPanel() {
   useLayoutEffect(() => {
     const rect = panelRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setPosition(clampPanelPosition(loadPanelPosition(localStorage), rect));
+    setPosition(clampPanelPosition(loadPanelPosition(), rect));
   }, []);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export function QuestPanel() {
       const clamped = clampPanelPosition(current, baseRect);
       positionRef.current = clamped;
       setPosition(clamped);
-      savePanelPosition(localStorage, clamped);
+      savePanelPosition(clamped);
     };
     window.addEventListener("resize", clampToViewport);
     return () => window.removeEventListener("resize", clampToViewport);
@@ -55,13 +55,13 @@ export function QuestPanel() {
   function stopDrag(event: ReactPointerEvent<HTMLElement>) {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     dragRef.current = null;
-    savePanelPosition(localStorage, positionRef.current);
+    savePanelPosition(positionRef.current);
   }
 
   function resetPosition() {
     const next = { x: 0, y: 0 };
     setPosition(next);
-    savePanelPosition(localStorage, next);
+    savePanelPosition(next);
   }
 
   return (

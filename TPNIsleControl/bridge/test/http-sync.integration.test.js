@@ -39,7 +39,6 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
     gameTransport: "auto",
     apiToken: "test-api-token",
     modSavedDir: path.join(directory, "ipc"),
-    stateFile: path.join(directory, "state.json"),
     pollMs: 50
   }));
 
@@ -152,7 +151,6 @@ test("position stream authenticates, isolates players, snapshots, updates, and c
     gameTransport: "http",
     apiToken: "test-api-token",
     modSavedDir: path.join(directory, "ipc"),
-    stateFile: path.join(directory, "state.json"),
     pollMs: 50
   }));
 
