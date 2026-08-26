@@ -37,7 +37,10 @@ try {
   store = await PostgresStore.connect({
     connectionString,
     poolSize: config.databasePoolSize,
-    snapshotFlushMs: config.snapshotFlushMs
+    snapshotFlushMs: config.snapshotFlushMs,
+    territoryWorldBounds: config.worldBounds,
+    territoryHexSize: config.territoryHexSize,
+    territoryMapRevision: config.mapRevision
   });
   console.log("[store] PostgreSQL connected");
 } catch (error) {
@@ -56,6 +59,7 @@ fs.mkdirSync(config.modSavedDir, { recursive: true });
 const cursors = new Map();
 const livePlayers = new Map(); // steam -> latest snapshot
 const positionSubscribers = new Map(); // steam -> Set<ServerResponse>
+const territorySubscribers = new Set();
 const addrToSteam = new Map(); // pawn address -> steam
 const recentDamage = new Map(); // victim address -> { attackerAddr, ts }
 const recentAiDeaths = new Map(); // AI address -> death timestamp
@@ -340,8 +344,8 @@ function processReviveRequest(e) {
   appendCommand({ verb: "revive", steam, args: {} });
 }
 
-function processTerritoryActivity(e) {
-  return store.recordTerritoryActivity({
+async function processTerritoryActivity(e) {
+  const result = await store.recordTerritoryActivity({
     eventId: e?.event_id || e?.eventId,
     steam: e?.steam,
     zoneId: e?.zone_id || e?.zoneId,
@@ -352,6 +356,25 @@ function processTerritoryActivity(e) {
     captureThreshold: config.territoryCaptureThreshold,
     ownershipHours: config.territoryOwnershipHours
   });
+  publishTerritories();
+  return result;
+}
+
+function publishTerritories() {
+  store.listTerritories().then((territories) => {
+    const event = `event: territories\ndata: ${JSON.stringify({ territories, stale: false })}\n\n`;
+    for (const response of territorySubscribers) response.write(event);
+  }).catch(() => undefined);
+}
+
+function streamTerritories(req, res) {
+  res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-store", connection: "keep-alive", "x-accel-buffering": "no" });
+  res.flushHeaders();
+  territorySubscribers.add(res);
+  publishTerritories();
+  const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
+  const cleanup = () => { clearInterval(heartbeat); territorySubscribers.delete(res); };
+  req.once("close", cleanup); res.once("close", cleanup);
 }
 
 setInterval(() => {
@@ -502,6 +525,11 @@ const server = http.createServer(async (req, res) => {
       players: [...livePlayers.values()]
     });
   }
+
+  if (req.method === "GET" && url.pathname === "/territories") return send(res, 200, { territories: await store.listTerritories() });
+  if (req.method === "GET" && url.pathname === "/territories/stream") return streamTerritories(req, res);
+  const territoryHistory = url.pathname.match(/^\/territories\/([^/]+)\/history$/);
+  if (req.method === "GET" && territoryHistory) return send(res, 200, { zoneId: decodeURIComponent(territoryHistory[1]), events: await store.territoryHistory(decodeURIComponent(territoryHistory[1])) });
 
   const positionStream = url.pathname.match(/^\/players\/([^/]+)\/position\/stream$/);
   if (req.method === "GET" && positionStream) {

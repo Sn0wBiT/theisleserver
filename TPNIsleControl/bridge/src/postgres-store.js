@@ -2,6 +2,8 @@ import pg from "pg";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { calculateInfluence } from "./territory-engine.js";
+import { generateHexZones } from "./territory-engine.js";
 
 const schema = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "sql", "001_initial.sql"), "utf8");
 
@@ -39,7 +41,19 @@ export class PostgresStore {
     });
     const store = new PostgresStore(pool, options.snapshotFlushMs);
     await store.initialize();
+    await store.seedTerritories(options.territoryWorldBounds, options.territoryHexSize, options.territoryMapRevision);
     return store;
+  }
+
+  async seedTerritories(bounds, size = 50_000, revision = "gateway-2026-08") {
+    if (!bounds) return;
+    const zones = generateHexZones(bounds, Number(size), revision);
+    for (const zone of zones) {
+      await this.pool.query(`INSERT INTO tpn_territory_zones
+        (zone_id, name, hex_q, hex_r, polygon, terrain_type, landmarks)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb) ON CONFLICT (zone_id) DO NOTHING`,
+        [zone.zoneId, `Territory ${zone.hexQ},${zone.hexR}`, zone.hexQ, zone.hexR, JSON.stringify(zone.polygon), zone.terrainType, JSON.stringify(zone.landmarks)]);
+    }
   }
 
   async initialize() {
@@ -88,6 +102,21 @@ export class PostgresStore {
     catch { return false; }
   }
 
+  async listTerritories() {
+    const result = await this.pool.query(`SELECT z.zone_id, z.name, z.hex_q, z.hex_r, z.polygon, z.terrain_type, z.landmarks,
+      COALESCE(s.status, 'neutral') AS status, COALESCE(s.influence, 0) AS influence,
+      COALESCE(s.influence_by_faction, '{}'::jsonb) AS influence_by_faction,
+      s.owner_faction_id, s.expires_at
+      FROM tpn_territory_zones z LEFT JOIN tpn_territory_states s ON s.zone_id = z.zone_id ORDER BY z.zone_id`);
+    return result.rows;
+  }
+
+  async territoryHistory(zoneId) {
+    const result = await this.pool.query(`SELECT event_id, faction_id, previous_faction_id, event_type, occurred_at, metadata
+      FROM tpn_territory_capture_events WHERE zone_id = $1 ORDER BY occurred_at DESC LIMIT 100`, [zoneId]);
+    return result.rows;
+  }
+
   recordTerritoryActivity(activity) {
     const eventId = String(activity.eventId || "");
     const steam = String(activity.steam || "");
@@ -106,28 +135,37 @@ export class PostgresStore {
         const member = await client.query("SELECT faction_id FROM tpn_faction_members WHERE steam_id = $1", [steam]);
         if (!member.rowCount) throw new Error("player-not-in-faction");
         const factionId = member.rows[0].faction_id;
+        const memberCount = await client.query("SELECT count(*)::int AS count FROM tpn_faction_members WHERE faction_id = $1", [factionId]);
+        const influence = calculateInfluence(points, memberCount.rows[0].count);
         const inserted = await client.query(`INSERT INTO tpn_territory_influence_events
           (event_id, idempotency_key, steam_id, faction_id, zone_id, activity_type, points, occurred_at, metadata)
           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, COALESCE(to_timestamp($7), now()), $8)
           ON CONFLICT (idempotency_key) DO NOTHING RETURNING event_id`,
-          [eventId, steam, factionId, zoneId, activityType, points, Number(activity.ts) || null, activity.metadata || {}]);
+          [eventId, steam, factionId, zoneId, activityType, influence, Number(activity.ts) || null, { ...(activity.metadata || {}), rawPoints: points }]);
         if (!inserted.rowCount) {
           await client.query("COMMIT");
           return { accepted: false, duplicate: true };
         }
-        const state = await client.query(`INSERT INTO tpn_territory_states (zone_id, status, influence)
-          VALUES ($1, 'contested', $2)
-          ON CONFLICT (zone_id) DO UPDATE SET influence = tpn_territory_states.influence + EXCLUDED.influence,
-            status = CASE WHEN tpn_territory_states.owner_faction_id IS NULL THEN 'contested' ELSE tpn_territory_states.status END,
+        const state = await client.query(`INSERT INTO tpn_territory_states (zone_id, status, influence, influence_by_faction)
+          VALUES ($1, 'capturing', $2, jsonb_build_object($3::text, $2))
+          ON CONFLICT (zone_id) DO UPDATE SET
+            influence = tpn_territory_states.influence + EXCLUDED.influence,
+            influence_by_faction = jsonb_set(tpn_territory_states.influence_by_faction, ARRAY[$3::text],
+              to_jsonb(COALESCE((tpn_territory_states.influence_by_faction ->> $3::text)::bigint, 0) + $2), true),
+            status = CASE WHEN tpn_territory_states.owner_faction_id IS NULL AND tpn_territory_states.status = 'neutral' THEN 'capturing'
+              WHEN tpn_territory_states.owner_faction_id IS NULL THEN 'contested'
+              WHEN tpn_territory_states.owner_faction_id::text <> $3::text THEN 'contested'
+              ELSE tpn_territory_states.status END,
             updated_at = now()
-          RETURNING zone_id, status, influence, owner_faction_id, expires_at`, [zoneId, points]);
+          RETURNING zone_id, status, influence, influence_by_faction, owner_faction_id, expires_at`, [zoneId, influence, factionId]);
         let committedState = state.rows[0];
         const threshold = Number(activity.captureThreshold || 100);
-        if (!committedState.owner_faction_id && committedState.influence >= threshold) {
+        const factionInfluence = Number(committedState.influence_by_faction?.[factionId] || 0);
+        if ((!committedState.owner_faction_id || committedState.owner_faction_id === factionId) && factionInfluence >= threshold) {
           const captured = await client.query(`UPDATE tpn_territory_states SET owner_faction_id = $1,
             status = 'owned', captured_at = now(), expires_at = now() + ($2 * interval '1 hour'), updated_at = now()
-            WHERE zone_id = $3 AND owner_faction_id IS NULL
-            RETURNING zone_id, status, influence, owner_faction_id, expires_at`, [factionId, Number(activity.ownershipHours || 72), zoneId]);
+            WHERE zone_id = $3 AND (owner_faction_id IS NULL OR owner_faction_id = $1)
+            RETURNING zone_id, status, influence, influence_by_faction, owner_faction_id, expires_at`, [factionId, Number(activity.ownershipHours || 72), zoneId]);
           if (captured.rowCount) {
             committedState = captured.rows[0];
             await client.query(`INSERT INTO tpn_territory_capture_events
