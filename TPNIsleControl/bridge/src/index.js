@@ -3,7 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { JsonStore } from "./store.js";
 import { PostgresStore } from "./postgres-store.js";
 import { QuestEngine } from "./quest-engine.js";
 import { formatQuestMessages } from "./quest-message.js";
@@ -28,28 +27,24 @@ const config = readJson(configPath);
 const quests = readJson(path.join(bridgeDir, "quests.json"));
 const aiDinosaurSpecies = new Set(readJson(path.join(bridgeDir, "ai-dinosaurs.json"))
   .map((species) => String(species).toLowerCase()));
-const stateFile = config.stateFile || path.join(bridgeDir, "data", "state.json");
-const storage = String(config.storage || "json").toLowerCase();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("PostgreSQL storage requires DATABASE_URL. The bridge applies bridge/sql/001_initial.sql before startup.");
+  process.exit(1);
+}
 let store;
-
-if (storage === "postgres") {
-  const connectionString = process.env.TPNISLECONTROL_DATABASE_URL || config.databaseUrl;
-  if (!connectionString) {
-    console.error("PostgreSQL storage requires TPNISLECONTROL_DATABASE_URL or config.databaseUrl.");
-    process.exit(1);
-  }
+try {
   store = await PostgresStore.connect({
     connectionString,
     poolSize: config.databasePoolSize,
     snapshotFlushMs: config.snapshotFlushMs,
-    importStateFile: stateFile
+    territoryWorldBounds: config.worldBounds,
+    territoryHexSize: config.territoryHexSize,
+    territoryMapRevision: config.mapRevision
   });
   console.log("[store] PostgreSQL connected");
-} else if (storage === "json") {
-  store = new JsonStore(stateFile);
-  console.log(`[store] JSON state: ${stateFile}`);
-} else {
-  console.error(`Unsupported storage backend: ${storage}`);
+} catch (error) {
+  console.error("[store] PostgreSQL connection or schema check failed", error);
   process.exit(1);
 }
 const questEngine = new QuestEngine(quests, store);
@@ -64,11 +59,32 @@ fs.mkdirSync(config.modSavedDir, { recursive: true });
 const cursors = new Map();
 const livePlayers = new Map(); // steam -> latest snapshot
 const positionSubscribers = new Map(); // steam -> Set<ServerResponse>
+const territorySubscribers = new Set();
 const addrToSteam = new Map(); // pawn address -> steam
 const recentDamage = new Map(); // victim address -> { attackerAddr, ts }
 const recentAiDeaths = new Map(); // AI address -> death timestamp
 const pendingHttpCommands = new PendingCommandQueue();
 let lastHttpSyncAt = 0;
+
+const territoryMaintenance = setInterval(() => {
+  store.expireTerritories().catch((error) => console.error("[territory] maintenance failed", error));
+}, Math.max(30_000, Number(config.territoryMaintenanceMs || 60_000)));
+territoryMaintenance.unref?.();
+
+for (const [steam, snapshot] of Object.entries(store.data.lastSnapshots)) {
+  livePlayers.set(steam, {
+    steam, ts: snapshot.ts, dinosaurId: snapshot.dinosaurId, growth: snapshot.growth,
+    vitals: snapshot.vitals || {
+      hp: snapshot.hp, hpMax: snapshot.hpMax, hunger: snapshot.hunger, hungerMax: snapshot.hungerMax,
+      thirst: snapshot.thirst, thirstMax: snapshot.thirstMax, stamina: snapshot.stamina, staminaMax: snapshot.staminaMax
+    },
+    addr: snapshot.addr, species: snapshot.species, snapshotUpdatedAt: Date.now()
+  });
+}
+for (const position of Object.values(store.data.positions)) {
+  const current = livePlayers.get(position.steam) || { steam: position.steam };
+  livePlayers.set(position.steam, { ...current, dinosaurId: position.dinosaurId, pos: { x: position.x, y: position.y, z: position.z }, positionUpdatedAt: position.updatedAt });
+}
 
 // Persistent quest state already contains everything represented by old IPC
 // records. Begin existing append-only files at EOF so a bridge restart cannot
@@ -121,11 +137,15 @@ function processSnapshot(s) {
   if (!s?.steam) return;
 
   const previous = livePlayers.get(s.steam);
+  const snapshotUpdatedAt = Date.now();
 
   livePlayers.set(s.steam, {
     ...s,
-    positionUpdatedAt: s?.pos ? Date.now() : previous?.positionUpdatedAt
+    snapshotUpdatedAt,
+    positionUpdatedAt: s?.pos ? snapshotUpdatedAt : previous?.positionUpdatedAt
   });
+
+  publishDinosaur(s.steam);
 
   if (s.addr) {
     addrToSteam.set(String(s.addr).toLowerCase(), s.steam);
@@ -173,6 +193,8 @@ function processPosition(update) {
     positionUpdatedAt: updatedAt
   });
 
+  store.savePosition(steam, { dinosaurId: update.dinosaurId || livePlayers.get(steam)?.dinosaurId || "legacy", x, y, z }, updatedAt);
+
   publishPosition(steam, { x, y, z }, updatedAt);
 }
 
@@ -180,9 +202,39 @@ function positionEvent(steamId, position, updatedAt) {
   return `event: position\ndata: ${JSON.stringify({ steamId, position, updatedAt })}\n\n`;
 }
 
+function numberOrNull(value) {
+  return value === null || value === undefined ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+}
+
+function dinosaurEvent(steamId, current) {
+  const vitals = current?.vitals;
+  return `event: dinosaur\ndata: ${JSON.stringify({
+    steamId,
+    dinosaurId: typeof current?.dinosaurId === "string" ? current.dinosaurId : null,
+    species: typeof current?.species === "string" ? current.species : null,
+    growth: numberOrNull(current?.growth),
+    snapshotAt: numberOrNull(current?.ts),
+    updatedAt: numberOrNull(current?.snapshotUpdatedAt) || Date.now(),
+    vitals: vitals && typeof vitals === "object" ? {
+      hp: numberOrNull(vitals.hp), hpMax: numberOrNull(vitals.hpMax),
+      hunger: numberOrNull(vitals.hunger), hungerMax: numberOrNull(vitals.hungerMax),
+      thirst: numberOrNull(vitals.thirst), thirstMax: numberOrNull(vitals.thirstMax),
+      stamina: numberOrNull(vitals.stamina), staminaMax: numberOrNull(vitals.staminaMax)
+    } : null
+  })}\n\n`;
+}
+
 function publishPosition(steamId, position, updatedAt) {
   for (const response of positionSubscribers.get(steamId) || []) {
     response.write(positionEvent(steamId, position, updatedAt));
+  }
+}
+
+function publishDinosaur(steamId) {
+  const current = livePlayers.get(steamId);
+  if (!/^\d{17}$/.test(String(steamId)) || !current) return;
+  for (const response of positionSubscribers.get(steamId) || []) {
+    response.write(dinosaurEvent(steamId, current));
   }
 }
 
@@ -202,6 +254,9 @@ function streamPosition(req, res, steamId) {
   const current = livePlayers.get(steamId);
   if (current?.pos && current.positionUpdatedAt) {
     res.write(positionEvent(steamId, current.pos, current.positionUpdatedAt));
+  }
+  if (current?.snapshotUpdatedAt || current?.ts) {
+    res.write(dinosaurEvent(steamId, current));
   }
 
   const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
@@ -333,6 +388,39 @@ function processReviveRequest(e) {
   appendCommand({ verb: "revive", steam, args: {} });
 }
 
+async function processTerritoryActivity(e) {
+  const result = await store.recordTerritoryActivity({
+    eventId: e?.event_id || e?.eventId,
+    steam: e?.steam,
+    zoneId: e?.zone_id || e?.zoneId,
+    activityType: e?.activity_type || e?.activityType,
+    points: e?.points,
+    ts: e?.ts,
+    metadata: e?.metadata,
+    captureThreshold: config.territoryCaptureThreshold,
+    ownershipHours: config.territoryOwnershipHours
+  });
+  publishTerritories();
+  return result;
+}
+
+function publishTerritories() {
+  store.listTerritories().then((territories) => {
+    const event = `event: territories\ndata: ${JSON.stringify({ territories, stale: false })}\n\n`;
+    for (const response of territorySubscribers) response.write(event);
+  }).catch(() => undefined);
+}
+
+function streamTerritories(req, res) {
+  res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-store", connection: "keep-alive", "x-accel-buffering": "no" });
+  res.flushHeaders();
+  territorySubscribers.add(res);
+  publishTerritories();
+  const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
+  const cleanup = () => { clearInterval(heartbeat); territorySubscribers.delete(res); };
+  req.once("close", cleanup); res.once("close", cleanup);
+}
+
 setInterval(() => {
   tail(eventsPath, (e) => {
     if (e.type === "snapshot") processSnapshot(e);
@@ -341,6 +429,7 @@ setInterval(() => {
     if (e.type === "help_request") processHelpRequest(e);
     if (e.type === "human_request") processHumanRequest(e);
     if (e.type === "revive_request") processReviveRequest(e);
+    if (e.type === "territory_activity") processTerritoryActivity(e).catch((error) => console.error("[territory] event failed", error));
     if (e.type === "damage_hit" || e.type === "ai_dinosaur_death") processNativeEvent(e);
   });
 
@@ -429,7 +518,9 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, {
       ok: true,
       players: livePlayers.size,
-      storage,
+      storage: "postgresql",
+      databaseConnected: await store.isHealthy(),
+      stale: Date.now() - lastHttpSyncAt > 30000,
       gameTransport: config.gameTransport || "file",
       httpConnected: Date.now() - lastHttpSyncAt < 15000,
       lastHttpSyncAt: lastHttpSyncAt || null,
@@ -449,7 +540,7 @@ const server = http.createServer(async (req, res) => {
       lastHttpSyncAt = Date.now();
       pendingHttpCommands.acknowledge(sync.acknowledgements);
 
-      store.batch(() => {
+      await store.batch(async () => {
         for (const snapshot of sync.snapshots) processSnapshot(snapshot);
         for (const position of sync.positions) processPosition(position);
         for (const event of sync.events) {
@@ -458,6 +549,7 @@ const server = http.createServer(async (req, res) => {
           if (event?.type === "help_request") processHelpRequest(event);
           if (event?.type === "human_request") processHumanRequest(event);
           if (event?.type === "revive_request") processReviveRequest(event);
+          if (event?.type === "territory_activity") await processTerritoryActivity(event);
           if (event?.type === "damage_hit" || event?.type === "ai_dinosaur_death") processNativeEvent(event);
         }
       });
@@ -477,6 +569,26 @@ const server = http.createServer(async (req, res) => {
       players: [...livePlayers.values()]
     });
   }
+
+  const dinosaur = url.pathname.match(/^\/players\/([^/]+)\/dinosaur$/);
+  if (req.method === "GET" && dinosaur) {
+    const steam = decodeURIComponent(dinosaur[1]);
+    if (!/^\d{17}$/.test(steam)) return send(res, 400, { ok: false, error: "invalid-steam-id" });
+    const current = livePlayers.get(steam);
+    if (!current) return send(res, 404, { ok: false, error: "dinosaur-not-found" });
+    return send(res, 200, {
+      dinosaurId: current.dinosaurId || null,
+      species: current.species || null,
+      growth: current.growth ?? null,
+      snapshotAt: Number(current.ts) || null,
+      vitals: current.vitals || null
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/territories") return send(res, 200, { territories: await store.listTerritories() });
+  if (req.method === "GET" && url.pathname === "/territories/stream") return streamTerritories(req, res);
+  const territoryHistory = url.pathname.match(/^\/territories\/([^/]+)\/history$/);
+  if (req.method === "GET" && territoryHistory) return send(res, 200, { zoneId: decodeURIComponent(territoryHistory[1]), events: await store.territoryHistory(decodeURIComponent(territoryHistory[1])) });
 
   const positionStream = url.pathname.match(/^\/players\/([^/]+)\/position\/stream$/);
   if (req.method === "GET" && positionStream) {
@@ -573,7 +685,8 @@ let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[shutdown] ${signal}; flushing persistent state`);
+  clearInterval(territoryMaintenance);
+  console.log(`[shutdown] ${signal}; flushing PostgreSQL state`);
   try {
     await new Promise((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());

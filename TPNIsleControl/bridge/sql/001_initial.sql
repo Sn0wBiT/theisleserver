@@ -1,49 +1,35 @@
-CREATE TABLE IF NOT EXISTS tpn_bridge_meta (
-  key text PRIMARY KEY,
-  value text NOT NULL
-);
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE TABLE IF NOT EXISTS tpn_hud_steam_profiles (steam_id varchar(17) PRIMARY KEY, display_name text NOT NULL, avatar_url text, updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS tpn_hud_login_attempts (id bigserial PRIMARY KEY, device_code_hash char(64) UNIQUE NOT NULL, browser_code_hash char(64) UNIQUE NOT NULL, status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','cancelled','expired','consumed')), steam_id varchar(17) REFERENCES tpn_hud_steam_profiles(steam_id), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL, approved_at timestamptz, consumed_at timestamptz);
+CREATE INDEX IF NOT EXISTS tpn_hud_login_attempts_expiry_idx ON tpn_hud_login_attempts (expires_at);
+CREATE TABLE IF NOT EXISTS tpn_hud_refresh_sessions (id bigserial PRIMARY KEY, token_hash char(64) UNIQUE NOT NULL, family_id varchar(32) NOT NULL, steam_id varchar(17) NOT NULL REFERENCES tpn_hud_steam_profiles(steam_id), created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL, last_used_at timestamptz, revoked_at timestamptz);
+CREATE INDEX IF NOT EXISTS tpn_hud_refresh_family_idx ON tpn_hud_refresh_sessions (family_id);
+CREATE TABLE IF NOT EXISTS tpn_hud_rate_limits (rate_key text PRIMARY KEY, window_started_at timestamptz NOT NULL, count integer NOT NULL);
 
-CREATE TABLE IF NOT EXISTS tpn_players (
-  steam_id text PRIMARY KEY,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS tpn_dinosaurs (
-  steam_id text NOT NULL REFERENCES tpn_players (steam_id) ON DELETE CASCADE,
-  dinosaur_id text NOT NULL,
-  snapshot_at bigint NOT NULL,
-  hp double precision,
-  pawn_address text,
-  species text,
-  growth double precision,
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (steam_id, dinosaur_id)
-);
-
-CREATE INDEX IF NOT EXISTS tpn_dinosaurs_player_active
-  ON tpn_dinosaurs (steam_id, is_active, snapshot_at DESC);
-
-CREATE TABLE IF NOT EXISTS tpn_token_balances (
-  steam_id text PRIMARY KEY,
-  balance bigint NOT NULL DEFAULT 0,
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT tpn_token_balances_nonnegative CHECK (balance >= 0)
-);
-
-CREATE TABLE IF NOT EXISTS tpn_quest_progress (
-  steam_id text NOT NULL,
-  quest_id text NOT NULL,
-  window_key text NOT NULL,
-  accepted boolean NOT NULL DEFAULT false,
-  progress double precision NOT NULL DEFAULT 0,
-  completed boolean NOT NULL DEFAULT false,
-  claimed boolean NOT NULL DEFAULT false,
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (steam_id, quest_id, window_key)
-);
-
-CREATE INDEX IF NOT EXISTS tpn_quest_progress_player_window
-  ON tpn_quest_progress (steam_id, window_key);
+CREATE TABLE IF NOT EXISTS tpn_players (steam_id varchar(17) PRIMARY KEY, display_name text, avatar_url text, last_seen_at timestamptz, is_online boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS tpn_dinosaurs (steam_id varchar(17) NOT NULL REFERENCES tpn_players(steam_id) ON DELETE CASCADE, dinosaur_id text NOT NULL, snapshot_at bigint NOT NULL, hp double precision, pawn_address text, species text, growth double precision, is_active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (steam_id, dinosaur_id));
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS hp_max double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS hunger double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS hunger_max double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS thirst double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS thirst_max double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS stamina double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS stamina_max double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS food double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS food_max double precision;
+CREATE INDEX IF NOT EXISTS tpn_dinosaurs_player_active ON tpn_dinosaurs (steam_id, is_active, snapshot_at DESC);
+CREATE TABLE IF NOT EXISTS tpn_dinosaur_positions (steam_id varchar(17) NOT NULL, dinosaur_id text NOT NULL, x double precision NOT NULL, y double precision NOT NULL, z double precision NOT NULL, zone_id text, observed_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (steam_id, dinosaur_id), FOREIGN KEY (steam_id, dinosaur_id) REFERENCES tpn_dinosaurs(steam_id, dinosaur_id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS tpn_factions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL UNIQUE, invite_code text NOT NULL UNIQUE, color text NOT NULL DEFAULT '#8b5cf6', leader_steam_id varchar(17) NOT NULL REFERENCES tpn_players(steam_id), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS tpn_faction_members (faction_id uuid NOT NULL REFERENCES tpn_factions(id) ON DELETE CASCADE, steam_id varchar(17) NOT NULL REFERENCES tpn_players(steam_id) ON DELETE CASCADE, role text NOT NULL DEFAULT 'member' CHECK (role IN ('leader', 'member')), joined_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (faction_id, steam_id), UNIQUE (steam_id));
+CREATE TABLE IF NOT EXISTS tpn_territory_zones (zone_id text PRIMARY KEY, name text NOT NULL, hex_q integer, hex_r integer, polygon jsonb NOT NULL DEFAULT '[]'::jsonb, terrain_type text, landmarks jsonb NOT NULL DEFAULT '[]'::jsonb, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS tpn_territory_states (zone_id text PRIMARY KEY REFERENCES tpn_territory_zones(zone_id) ON DELETE CASCADE, owner_faction_id uuid REFERENCES tpn_factions(id) ON DELETE SET NULL, status text NOT NULL DEFAULT 'neutral' CHECK (status IN ('neutral', 'capturing', 'contested', 'owned', 'expired')), influence bigint NOT NULL DEFAULT 0 CHECK (influence >= 0), influence_by_faction jsonb NOT NULL DEFAULT '{}'::jsonb, captured_at timestamptz, expires_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS tpn_territory_influence_events (event_id uuid PRIMARY KEY, idempotency_key text NOT NULL UNIQUE, steam_id varchar(17) NOT NULL REFERENCES tpn_players(steam_id), faction_id uuid REFERENCES tpn_factions(id) ON DELETE SET NULL, zone_id text NOT NULL REFERENCES tpn_territory_zones(zone_id) ON DELETE CASCADE, activity_type text NOT NULL, points bigint NOT NULL, occurred_at timestamptz NOT NULL DEFAULT now(), metadata jsonb NOT NULL DEFAULT '{}'::jsonb);
+CREATE INDEX IF NOT EXISTS tpn_territory_influence_zone_time ON tpn_territory_influence_events(zone_id, occurred_at DESC);
+CREATE TABLE IF NOT EXISTS tpn_territory_capture_events (event_id uuid PRIMARY KEY, zone_id text NOT NULL REFERENCES tpn_territory_zones(zone_id) ON DELETE CASCADE, faction_id uuid REFERENCES tpn_factions(id) ON DELETE SET NULL, previous_faction_id uuid REFERENCES tpn_factions(id) ON DELETE SET NULL, event_type text NOT NULL CHECK (event_type IN ('contest', 'capture', 'expiration', 'decay')), occurred_at timestamptz NOT NULL DEFAULT now(), metadata jsonb NOT NULL DEFAULT '{}'::jsonb);
+ALTER TABLE tpn_territory_states ADD COLUMN IF NOT EXISTS influence_by_faction jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE tpn_territory_states DROP CONSTRAINT IF EXISTS tpn_territory_states_status_check;
+ALTER TABLE tpn_territory_states ADD CONSTRAINT tpn_territory_states_status_check CHECK (status IN ('neutral', 'capturing', 'contested', 'owned', 'expired'));
+CREATE INDEX IF NOT EXISTS tpn_territory_capture_zone_time ON tpn_territory_capture_events(zone_id, occurred_at DESC);
+CREATE TABLE IF NOT EXISTS tpn_token_balances (steam_id varchar(17) PRIMARY KEY REFERENCES tpn_players(steam_id) ON DELETE CASCADE, balance bigint NOT NULL DEFAULT 0 CHECK (balance >= 0), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS tpn_quest_progress (steam_id varchar(17) NOT NULL REFERENCES tpn_players(steam_id) ON DELETE CASCADE, quest_id text NOT NULL, window_key text NOT NULL, accepted boolean NOT NULL DEFAULT false, progress double precision NOT NULL DEFAULT 0, completed boolean NOT NULL DEFAULT false, claimed boolean NOT NULL DEFAULT false, updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (steam_id, quest_id, window_key));
+CREATE INDEX IF NOT EXISTS tpn_quest_progress_player_window ON tpn_quest_progress (steam_id, window_key);

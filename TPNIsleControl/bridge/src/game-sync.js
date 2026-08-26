@@ -18,11 +18,20 @@ export function parseGameSync(input) {
   return {
     snapshots: arrayField(input, "snapshots", MAX_SNAPSHOTS),
     positions: arrayField(input, "positions", MAX_POSITIONS),
-    events: arrayField(input, "events", MAX_EVENTS),
+    events: arrayField(input, "events", MAX_EVENTS).map(validateEvent),
     acknowledgements: arrayField(input, "acknowledgements", MAX_ACKS)
       .map(String)
       .filter(Boolean)
   };
+}
+
+function validateEvent(event) {
+  if (!event || typeof event !== "object" || Array.isArray(event)) throw new Error("event-must-be-object");
+  if (event.type === "territory_activity") {
+    if (typeof event.event_id !== "string" && typeof event.eventId !== "string") throw new Error("territory-event-id-required");
+    if (typeof event.zone_id !== "string" && typeof event.zoneId !== "string") throw new Error("territory-zone-required");
+  }
+  return event;
 }
 
 export class PendingCommandQueue {

@@ -61,7 +61,13 @@ export class QuestEngine {
       dinosaurId: snapshot.dinosaurId || null,
       species: snapshot.species || null,
       growth: Number.isFinite(growth) ? growth : null,
-      snapshotAt: Number(snapshot.ts) || null
+      snapshotAt: Number(snapshot.ts) || null,
+      vitals: snapshot.vitals || {
+        hp: snapshot.hp ?? null, hpMax: snapshot.hpMax ?? null,
+        hunger: snapshot.hunger ?? null, hungerMax: snapshot.hungerMax ?? null,
+        thirst: snapshot.thirst ?? null, thirstMax: snapshot.thirstMax ?? null,
+        stamina: snapshot.stamina ?? null, staminaMax: snapshot.staminaMax ?? null
+      }
     };
   }
 
@@ -138,9 +144,19 @@ export class QuestEngine {
       ts,
       dinosaurId: snapshot.dinosaurId ?? null,
       hp: snapshot?.vitals?.hp ?? null,
+      hpMax: snapshot?.vitals?.hpMax ?? null,
       addr: snapshot.addr ?? null,
       species: snapshot.species ?? null,
-      growth: snapshot.growth ?? null
+      growth: snapshot.growth ?? null,
+      hunger: snapshot?.vitals?.hunger ?? null,
+      hungerMax: snapshot?.vitals?.hungerMax ?? null,
+      thirst: snapshot?.vitals?.thirst ?? null,
+      thirstMax: snapshot?.vitals?.thirstMax ?? null,
+      stamina: snapshot?.vitals?.stamina ?? null,
+      staminaMax: snapshot?.vitals?.staminaMax ?? null,
+      food: snapshot?.vitals?.food ?? null,
+      foodMax: snapshot?.vitals?.foodMax ?? null,
+      vitals: snapshot.vitals ?? null
     };
 
     this.store.saveSnapshot?.(steam, this.store.data.lastSnapshots[steam]);

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { appOrigin } from "@/lib/app-origin";
 
 export function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  const origin = new URL(process.env.PUBLIC_ORIGIN ?? requestUrl.origin).origin;
+  const origin = appOrigin(request);
   const returnTo = requestUrl.searchParams.get("returnTo");
   const safeReturnTo = returnTo === "/hud/confirm" || returnTo?.startsWith("/hud/connect?") ? returnTo : "/";
   console.log('[DEBUG] safeReturnTo:', safeReturnTo);

@@ -1,10 +1,13 @@
-import { ClipboardList, MapIcon } from "lucide-react";
+import { ClipboardList, MapIcon, Users } from "lucide-react";
 import { CompactMinimap } from "@/features/minimap/CompactMinimap";
+import { DinoStatusHud } from "@/features/dino/DinoStatusHud";
+import { usePositionStream } from "@/features/minimap/usePositionStream";
 import { cn } from "@/lib/utils";
 import { postNativeMessage } from "@/services/native-bridge";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export function HudLayer() {
+  const { dinosaur, playerPresent } = usePositionStream();
   const interactive = useOverlayStore((state) => state.interactive);
   const expandedMinimapOpen = useOverlayStore((state) => state.expandedMinimapOpen);
   const setInteractive = useOverlayStore((state) => state.setInteractive);
@@ -21,15 +24,33 @@ export function HudLayer() {
     openPanel("minimap");
   }
 
+  const openGang = () => {
+    postNativeMessage({ type: "overlay.setInteractive", value: true });
+    setInteractive(true);
+    openPanel("gang");
+  };
+
   return (
     <div className="absolute inset-0 pointer-events-none">
+      {playerPresent && dinosaur && <DinoStatusHud status={{
+        dinosaurId: dinosaur.dinosaurId,
+        species: dinosaur.species ?? "Unknown species",
+        variant: "Current player dino",
+        health: dinosaur.vitals?.hp ?? null,
+        maxHealth: dinosaur.vitals?.hpMax ?? null,
+        stamina: dinosaur.vitals?.staminaMax ? ((dinosaur.vitals.stamina ?? 0) / dinosaur.vitals.staminaMax) * 100 : null,
+        growth: dinosaur.growth === null ? null : dinosaur.growth * 100,
+        hunger: dinosaur.vitals?.hungerMax ? ((dinosaur.vitals.hunger ?? 0) / dinosaur.vitals.hungerMax) * 100 : null,
+        thirst: dinosaur.vitals?.thirstMax ? ((dinosaur.vitals.thirst ?? 0) / dinosaur.vitals.thirstMax) * 100 : null,
+      }} />}
       {/* Menus */}
-      <div id="btn-list" className="relative z-100 left-4">
+      <div id="btn-list" className="relative z-100 left-4 space-y-2">
+        {/* Map */}
         <button
           type="button"
           className={cn(
             "pointer-events-auto top-4 flex hidden cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
-            expandedMinimapOpen ? "relative" : "absolute left-49",
+            expandedMinimapOpen ? "relative" : "absolute left-56 top-14",
           )}
           onClick={openMap}
           aria-label="Mở bản đồ"
@@ -40,11 +61,26 @@ export function HudLayer() {
             <span className="block text-[9px] uppercase tracking-[0.18em] text-ash">M - Bản đồ</span>
           </div>
         </button>
+        {/* Gang */}
         <button
           type="button"
           className={cn(
             "pointer-events-auto top-4 flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
-            expandedMinimapOpen ? "relative" : "absolute",
+            expandedMinimapOpen ? "relative" : "absolute left-50",
+          )}
+          onClick={openGang}
+          aria-label="Mở bảng bang hội"
+          disabled={interactive}
+        >
+          <Users className="size-4 text-moss" />
+          <div className="absolute -bottom-10 text-shadow-moss hidden"><span className="block text-[9px] uppercase tracking-[0.18em] text-ash">Bang hội</span></div>
+        </button>
+        {/* Quests */}
+        <button
+          type="button"
+          className={cn(
+            "pointer-events-auto top-4 flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
+            expandedMinimapOpen ? "relative" : "absolute left-56 top-14",
           )}
           onClick={openInteractive}
           aria-label="Mở bảng nhiệm vụ"

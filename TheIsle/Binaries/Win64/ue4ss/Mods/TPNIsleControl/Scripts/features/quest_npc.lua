@@ -119,6 +119,29 @@ function QuestNpc.spawn(steam, questId, species, acceptMode)
         ACCEPT_RADIUS_CM / 100, questId)
 end
 
+function QuestNpc.spawnDinosaur(steam, species)
+    if not Players.isAdmin(steam) then return false, "admin access required" end
+    if species == nil or species == "" then return false, "usage: /spawn <dinosaur-name>" end
+
+    local player = Players.pawnForSteam(steam)
+    if Players.liveAddress(player) == nil then return false, "player has no live dinosaur" end
+    local origin = actorLocation(player)
+    if origin == nil then return false, "player location unavailable" end
+
+    local spawner = worldSpawner()
+    if spawner == nil then return false, "AI world spawner unavailable" end
+    local class, classErr = chooseClass(spawner, species)
+    if class == nil then return false, classErr end
+
+    local ok, spawnErr = pcall(function()
+        if spawner:TrySpawnCharacter(class, origin) ~= true then
+            error("the game rejected the AI spawn location")
+        end
+    end)
+    if not ok then return false, "AI spawn failed: " .. tostring(spawnErr) end
+    return true, "spawned " .. species .. " at your position"
+end
+
 function QuestNpc.canAccept(steam, questId)
     local session = sessions[(questId or ""):lower()]
     if session == nil then return true, nil end

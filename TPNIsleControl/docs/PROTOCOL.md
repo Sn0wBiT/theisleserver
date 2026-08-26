@@ -15,14 +15,14 @@ Every snapshot interval, Lua submits all online player snapshots in one call to
 worker retries requests without blocking the game thread and queues response
 commands for Lua to poll.
 
-While HTTP transport is active, Lua also submits lightweight player position
-updates every `positionIntervalMs` (100 ms by default). These contain only the
-Steam ID and Unreal `x`, `y`, and `z` coordinates. They update bridge memory for
-latency-sensitive consumers such as proximity VOIP and are not persisted.
+While HTTP transport is active, Lua also submits lightweight dinosaur position
+updates every `positionIntervalMs` (100 ms by default). These contain the Steam
+ID, dinosaur ID, and Unreal `x`, `y`, and `z` coordinates. The bridge caches them
+for latency-sensitive consumers and batches them into `tpn_dinosaur_positions`.
 
-The bridge keeps live snapshots and pending commands in memory. Only aggregated
-quest progress, token balances, and minimal last-snapshot state are persisted.
-PostgreSQL setup and JSON migration are documented in
+The bridge keeps live snapshots and pending commands in memory, while player,
+dinosaur, position, quest, token, faction, and territory state is persisted in
+PostgreSQL. PostgreSQL setup is documented in
 [POSTGRESQL_SETUP.md](./POSTGRESQL_SETUP.md).
 
 Commands are returned as NDJSON and are retained by the bridge until Lua sends
@@ -145,3 +145,11 @@ health. The bridge ignores player addresses, attributes the remaining death to
 the latest player hit, and increments accepted `ai_dinosaur_kills` quests.
 Only species listed in `bridge/ai-dinosaurs.json` are eligible; each entry is
 matched against the target's Unreal class name.
+## Territory activity
+
+The game may send `territory_activity` records through HTTP sync or the NDJSON
+fallback. Each record contains `event_id`, `steam`, `zone_id`,
+`activity_type`, `points`, and `ts`. The bridge validates membership and zone
+existence, then writes the idempotent ledger event and territory state in one
+PostgreSQL transaction. Replaying the same `event_id` is safe and does not add
+influence twice. PostgreSQL is authoritative; NDJSON is transport only.

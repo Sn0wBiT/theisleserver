@@ -5,7 +5,7 @@ tracking and claiming quests, and queuing commands for the UE4SS game mod.
 The bridge and game mod communicate through batched localhost HTTP, with the
 file protocol retained as an automatic fallback, as described in
 [PROTOCOL.md](./PROTOCOL.md).
-Persistent state can use PostgreSQL; installation and migration are documented
+PostgreSQL is the only durable store; installation and the single schema are documented
 in [POSTGRESQL_SETUP.md](./POSTGRESQL_SETUP.md).
 
 ## Connection
@@ -93,7 +93,8 @@ is configured, it requires that bearer token instead.
   ],
   "events": [
     {"type":"quest_request","steam":"76561198000000000","ts":1777000000},
-    {"type":"help_request","steam":"76561198000000000","ts":1777000000}
+    {"type":"help_request","steam":"76561198000000000","ts":1777000000},
+    {"type":"territory_activity","event_id":"activity-123","steam":"76561198000000000","zone_id":"gateway-01","activity_type":"presence","points":5,"ts":1777000000}
   ],
   "acknowledgements": ["previous-command-id"]
 }
@@ -106,7 +107,7 @@ array. An empty response means there are no commands.
 The request body is limited to 1 MiB, 500 snapshots, 500 positions, 1,000
 events, and 1,000 acknowledgements. Position updates are merged into the live
 player record with a bridge-generated millisecond `positionUpdatedAt` value and
-do not update quest state or persistent storage.
+are cached for low latency and persisted in PostgreSQL as `tpn_dinosaur_positions`.
 
 ## Health
 
@@ -136,7 +137,7 @@ Response:
 | --- | --- | --- |
 | `ok` | boolean | Always `true` when the bridge answers. |
 | `players` | integer | Number of Steam IDs with a snapshot in bridge memory. |
-| `storage` | string | Active persistent-state backend: `json` or `postgres`. |
+| `storage` | string | Always `postgresql`; PostgreSQL is the only durable store. |
 | `gameTransport` | string | Configured command transport mode. |
 | `httpConnected` | boolean | Whether a game sync arrived in the last 15 seconds. |
 | `lastHttpSyncAt` | integer or null | Unix time in milliseconds of the latest HTTP game sync. |
@@ -145,6 +146,17 @@ Response:
 
 `players` is not an active connection count. The bridge retains the latest
 snapshot for each Steam ID until it restarts.
+
+## Territory and faction API
+
+The authenticated Next.js HUD API exposes `GET /api/territories`,
+`GET /api/territories/stream`, `GET /api/territories/{zoneId}/history`,
+`GET /api/factions/me`, `POST /api/factions`,
+`POST /api/factions/{id}/invite`, and
+`POST /api/territories/{zoneId}/activity`. These endpoints authenticate with
+the HUD identity flow and use the shared PostgreSQL database. Activity requests
+require faction membership and an idempotency `eventId`; duplicate submissions
+do not add influence twice.
 
 ## Players
 

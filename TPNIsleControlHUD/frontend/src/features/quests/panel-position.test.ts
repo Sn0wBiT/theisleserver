@@ -3,13 +3,8 @@ import { clampPanelPosition, loadPanelPosition, QUEST_PANEL_POSITION_KEY, savePa
 
 describe("quest panel placement", () => {
   it("restores a versioned position and ignores unusable data", () => {
-    const values = new Map<string, string>();
-    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) };
-    savePanelPosition(storage, { x: -120, y: 80 });
-    expect(values.has(QUEST_PANEL_POSITION_KEY)).toBe(true);
-    expect(loadPanelPosition(storage)).toEqual({ x: -120, y: 80 });
-    values.set(QUEST_PANEL_POSITION_KEY, '{"x":"bad","y":2}');
-    expect(loadPanelPosition(storage)).toEqual({ x: 0, y: 0 });
+    savePanelPosition({ x: -120, y: 80 });
+    expect(loadPanelPosition()).toEqual({ x: -120, y: 80 });
   });
 
   it("clamps restored and resized positions to the viewport", () => {

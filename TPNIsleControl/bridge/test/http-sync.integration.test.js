@@ -39,7 +39,6 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
     gameTransport: "auto",
     apiToken: "test-api-token",
     modSavedDir: path.join(directory, "ipc"),
-    stateFile: path.join(directory, "state.json"),
     pollMs: 50
   }));
 
@@ -152,7 +151,6 @@ test("position stream authenticates, isolates players, snapshots, updates, and c
     gameTransport: "http",
     apiToken: "test-api-token",
     modSavedDir: path.join(directory, "ipc"),
-    stateFile: path.join(directory, "state.json"),
     pollMs: 50
   }));
 
@@ -176,7 +174,10 @@ test("position stream authenticates, isolates players, snapshots, updates, and c
   await fetch(`${url}/game/sync`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ positions: [{ steam, pos: { x: 100, y: 200, z: 300 } }] })
+    body: JSON.stringify({
+      snapshots: [{ steam, ts: Math.floor(Date.now() / 1000), dinosaurId: "dino-1", species: "Omniraptor", growth: 0.25, vitals: { hp: 80, hpMax: 100, hunger: 10, hungerMax: 20, thirst: 15, thirstMax: 20, stamina: 30, staminaMax: 40 } }],
+      positions: [{ steam, pos: { x: 100, y: 200, z: 300 } }]
+    })
   });
 
   const controller = new AbortController();
@@ -191,6 +192,8 @@ test("position stream authenticates, isolates players, snapshots, updates, and c
   const decoder = new TextDecoder();
   const initial = decoder.decode((await reader.read()).value);
   assert.match(initial, /"position":\{"x":100,"y":200,"z":300\}/);
+  assert.match(initial, /event: dinosaur/);
+  assert.match(initial, /"dinosaurId":"dino-1"/);
 
   await fetch(`${url}/game/sync`, {
     method: "POST",
@@ -199,12 +202,15 @@ test("position stream authenticates, isolates players, snapshots, updates, and c
       positions: [
         { steam: otherSteam, pos: { x: 9, y: 9, z: 9 } },
         { steam, pos: { x: 101, y: 202, z: 303 } }
-      ]
+      ],
+      snapshots: [{ steam, ts: Math.floor(Date.now() / 1000), dinosaurId: "dino-2", species: "Tenontosaurus", growth: 0.5 }]
     })
   });
   const update = decoder.decode((await reader.read()).value);
   assert.match(update, /"steamId":"76561198000000000"/);
   assert.match(update, /"position":\{"x":101,"y":202,"z":303\}/);
+  assert.match(update, /event: dinosaur/);
+  assert.match(update, /"dinosaurId":"dino-2"/);
   assert.doesNotMatch(update, /"x":9/);
 
   controller.abort();

@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   async headers() {
     const corsHeaders = [
         { key: "Access-Control-Allow-Origin", value: process.env.HUD_ORIGIN ?? "http://dino.tpnrp.local" },
@@ -13,6 +14,7 @@ const nextConfig: NextConfig = {
       { source: "/api/quests/:path*", headers: corsHeaders },
       { source: "/api/minimap/:path*", headers: corsHeaders },
       { source: "/api/me", headers: corsHeaders },
+      { source: "/api/game/:path*", headers: corsHeaders },
       { source: "/api/hud-auth/:path*", headers: corsHeaders },
     ];
   },

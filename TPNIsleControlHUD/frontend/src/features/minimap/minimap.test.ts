@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { calibrationSchema } from "./types";
 import { imagePointToLeaflet, worldToMap } from "./calibration";
-import { consumeAuthenticatedPositionStream, parsePositionEvent, reconnectDelay } from "./stream";
+import { consumeAuthenticatedPositionStream, parseDinosaurEvent, parsePositionEvent, reconnectDelay } from "./stream";
 import { clearSession, storeSession } from "@/services/auth";
 import { setApiUrl } from "@/services/api";
 import { followAfterAction, isPositionStale } from "./state";
@@ -42,6 +42,17 @@ describe("position stream", () => {
     expect(parsePositionEvent(JSON.stringify({ steamId: "bad", position: { x: 1, y: 2, z: 3 }, updatedAt: 1 }))).toBeNull();
   });
 
+  it("parses valid dinosaur events and ignores invalid ones", () => {
+    const event = parseDinosaurEvent(JSON.stringify({
+      steamId: "76561198000000000", dinosaurId: "dino-1", species: "Omniraptor",
+      growth: 0.5, snapshotAt: 123, updatedAt: 456,
+      vitals: { hp: 80, hpMax: 100, hunger: null, hungerMax: 20, thirst: 15, thirstMax: 20, stamina: 30, staminaMax: 40 },
+    }));
+    expect(event?.species).toBe("Omniraptor");
+    expect(parseDinosaurEvent(JSON.stringify({ steamId: "bad", updatedAt: 1 }))).toBeNull();
+    expect(parseDinosaurEvent(JSON.stringify({ steamId: "76561198000000000", updatedAt: 1, vitals: "bad" }))).toBeNull();
+  });
+
   it("uses the specified capped reconnect backoff", () => {
     expect([0, 1, 2, 3, 8].map(reconnectDelay)).toEqual([1000, 2000, 5000, 10000, 10000]);
   });
@@ -63,12 +74,6 @@ describe("position stream", () => {
   });
 
   it("refreshes an SSE 401 once and retries with the rotated access token", async () => {
-    const values = new Map<string, string>();
-    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => values.set(key, value),
-      removeItem: (key: string) => values.delete(key),
-    } });
     clearSession();
     setApiUrl("https://api.example");
     storeSession({ player: { steamId: "76561198000000000", displayName: "Rex", avatarUrl: null }, accessToken: "old", refreshToken: "refresh", expiresIn: 900 });

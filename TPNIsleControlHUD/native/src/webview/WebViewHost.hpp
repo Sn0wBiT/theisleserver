@@ -8,7 +8,7 @@
 
 class WebViewHost {
 public:
-    using CommandHandler = std::function<void(const std::wstring& type, bool value)>;
+    using CommandHandler = std::function<void(const std::wstring& type, bool value, const std::wstring& payload)>;
     using StatusHandler = std::function<void(const std::wstring& message)>;
     WebViewHost();
     ~WebViewHost();

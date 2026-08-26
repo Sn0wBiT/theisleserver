@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type Panel = "none" | "quests" | "minimap" | "profile" | "voice" | "settings";
+export type Panel = "none" | "quests" | "gang" | "minimap" | "profile" | "voice" | "settings";
 
 type OverlayState = {
   interactive: boolean;

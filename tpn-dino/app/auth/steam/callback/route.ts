@@ -1,12 +1,13 @@
 import { createSession } from "@/lib/auth";
 import { cacheSteamProfile } from "@/lib/hud-auth";
+import { appOrigin } from "@/lib/app-origin";
 import { NextResponse } from "next/server";
 
 const STEAM_OPENID_URL = "https://steamcommunity.com/openid/login";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  const origin = new URL(process.env.PUBLIC_ORIGIN ?? requestUrl.origin).origin;
+  const origin = appOrigin(request);
   const params = new URLSearchParams(requestUrl.searchParams);
   const claimedId = params.get("openid.claimed_id") ?? "";
   const match = claimedId.match(/^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/);

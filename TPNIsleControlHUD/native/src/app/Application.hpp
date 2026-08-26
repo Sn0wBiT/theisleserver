@@ -19,7 +19,7 @@ private:
     bool Initialize();
     void Tick();
     void SetMode(OverlayMode mode);
-    void HandleWebCommand(const std::wstring& type, bool value);
+    void HandleWebCommand(const std::wstring& type, bool value, const std::wstring& payload);
     void AddTrayIcon();
     void RemoveTrayIcon();
     void ShowTrayMenu(POINT anchor);

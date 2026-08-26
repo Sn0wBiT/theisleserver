@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Calibration, PositionEvent } from "./types";
 import { imagePointToLeaflet, worldToMap } from "./calibration";
+import { loadTerritories, territoryColor, territoryPolygon, type Territory } from "./territories";
 
 type Props = {
   calibration: Calibration;
@@ -11,14 +12,17 @@ type Props = {
   follow: boolean;
   recenterKey?: number;
   onFollowChange?: (follow: boolean) => void;
+  showTerritories?: boolean;
 };
 
-export function MinimapMap({ calibration, position, compact = false, follow, recenterKey, onFollowChange }: Props) {
+export function MinimapMap({ calibration, position, compact = false, follow, recenterKey, onFollowChange, showTerritories = true }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const latestPoint = useRef<L.LatLng | null>(null);
   const onFollowChangeRef = useRef(onFollowChange);
+  const territoryLayerRef = useRef<L.LayerGroup | null>(null);
+  const [territories, setTerritories] = useState<Territory[]>([]);
   onFollowChangeRef.current = onFollowChange;
 
   useEffect(() => {
@@ -39,11 +43,47 @@ export function MinimapMap({ calibration, position, compact = false, follow, rec
       maxBounds: bounds.pad(0.35),
     });
     L.imageOverlay(calibration.image.src, bounds, { attribution: calibration.attribution }).addTo(map);
+    territoryLayerRef.current = L.layerGroup().addTo(map);
     map.fitBounds(bounds, { animate: false });
     if (!compact) map.on("dragstart", () => onFollowChangeRef.current?.(false));
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; markerRef.current = null; };
+    return () => { map.remove(); mapRef.current = null; markerRef.current = null; territoryLayerRef.current = null; };
   }, [calibration, compact]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const mock = import.meta.env.DEV && import.meta.env.VITE_TERRITORY_MOCK !== "false";
+    loadTerritories(controller.signal, calibration, mock).then(setTerritories).catch(() => undefined);
+    const source = mock ? null : new EventSource("/api/territories/stream");
+    source?.addEventListener("territories", (event) => {
+      try { setTerritories(JSON.parse((event as MessageEvent).data).territories ?? []); } catch { /* reconnect on the next mount */ }
+    });
+    return () => { controller.abort(); source?.close(); };
+  }, [calibration]);
+
+  useEffect(() => {
+    const layer = territoryLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    if (!showTerritories) return;
+    for (const zone of territories) {
+      const polygon = territoryPolygon(zone, calibration).map((point) => imagePointToLeaflet(point, calibration.image.height) as [number, number]);
+      const neutral = zone.status === "neutral";
+      const baseStyle = {
+        color: territoryColor(zone),
+        weight: zone.status === "contested" ? 3 : 1,
+        opacity: neutral ? 0 : 0.3,
+        fillOpacity: neutral ? 0 : Math.min(0.2, 0.12 + zone.influence / 500),
+      };
+      const territoryLayer = L.polygon(polygon, baseStyle)
+        .bindTooltip(`${zone.name} · ${zone.status}`)
+        .addTo(layer);
+      if (neutral) {
+        territoryLayer.on("mouseover", () => territoryLayer.setStyle({ weight: 2, opacity: 0.55, fillOpacity: 0.18 }));
+        territoryLayer.on("mouseout", () => territoryLayer.setStyle(baseStyle));
+      }
+    }
+  }, [calibration, showTerritories, territories]);
 
   useEffect(() => {
     const map = mapRef.current;

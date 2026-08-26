@@ -59,6 +59,29 @@ void OverlayWindow::Destroy() { if (hwnd_) DestroyWindow(hwnd_); hwnd_ = nullptr
 void OverlayWindow::SetBounds(const RECT& rect) {
     SetWindowPos(hwnd_, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
+void OverlayWindow::SetLauncherBounds() {
+    RECT workArea{};
+    SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0);
+    constexpr LONG width = 760;
+    constexpr LONG height = 480;
+    SetWindowPos(hwnd_, HWND_TOPMOST, workArea.left + ((workArea.right - workArea.left) - width) / 2,
+                 workArea.top + ((workArea.bottom - workArea.top) - height) / 2, width, height,
+                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
+}
+void OverlayWindow::SetLauncherMode(bool enabled) {
+    if (!hwnd_) return;
+    auto styles = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
+    if (enabled) {
+        styles &= ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+        styles |= WS_EX_APPWINDOW;
+    } else {
+        styles |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
+        styles &= ~WS_EX_APPWINDOW;
+    }
+    SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, styles);
+    SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED | SWP_NOACTIVATE);
+}
 void OverlayWindow::Show() { ShowWindow(hwnd_, SW_SHOWNOACTIVATE); }
 void OverlayWindow::Hide() { ShowWindow(hwnd_, SW_HIDE); }
 
