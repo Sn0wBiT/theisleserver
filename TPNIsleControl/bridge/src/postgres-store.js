@@ -64,7 +64,8 @@ export class PostgresStore {
       this.pool.query("SELECT steam_id, balance FROM tpn_token_balances"),
       this.pool.query(
         `SELECT DISTINCT ON (steam_id)
-           steam_id, dinosaur_id, snapshot_at, hp, pawn_address, species, growth
+           steam_id, dinosaur_id, snapshot_at, hp, hp_max, pawn_address, species, growth,
+           hunger, hunger_max, thirst, thirst_max, stamina, stamina_max, food, food_max
          FROM tpn_dinosaurs
          ORDER BY steam_id, is_active DESC, snapshot_at DESC`
       ),
@@ -85,9 +86,18 @@ export class PostgresStore {
         ts: Number(row.snapshot_at),
         dinosaurId: row.dinosaur_id,
         hp: row.hp === null ? null : Number(row.hp),
+        hpMax: row.hp_max === null ? null : Number(row.hp_max),
         addr: row.pawn_address,
         species: row.species,
-        growth: row.growth === null ? null : Number(row.growth)
+        growth: row.growth === null ? null : Number(row.growth),
+        hunger: row.hunger === null ? null : Number(row.hunger),
+        hungerMax: row.hunger_max === null ? null : Number(row.hunger_max),
+        thirst: row.thirst === null ? null : Number(row.thirst),
+        thirstMax: row.thirst_max === null ? null : Number(row.thirst_max),
+        stamina: row.stamina === null ? null : Number(row.stamina),
+        staminaMax: row.stamina_max === null ? null : Number(row.stamina_max),
+        food: row.food === null ? null : Number(row.food),
+        foodMax: row.food_max === null ? null : Number(row.food_max)
       };
     }
     for (const row of positions.rows) {
@@ -306,10 +316,14 @@ export class PostgresStore {
     return executor.query(
       `WITH payload AS (
          SELECT steam, COALESCE(NULLIF(dinosaur_id, ''), 'legacy') AS dinosaur_id,
-                ts, hp, addr, species, growth
+                ts, hp, hp_max, addr, species, growth,
+                hunger, hunger_max, thirst, thirst_max, stamina, stamina_max, food, food_max
          FROM json_to_recordset($1::json) AS x(
            steam text, dinosaur_id text, ts bigint, hp double precision,
-           addr text, species text, growth double precision
+           hp_max double precision, addr text, species text, growth double precision,
+           hunger double precision, hunger_max double precision, thirst double precision,
+           thirst_max double precision, stamina double precision, stamina_max double precision,
+           food double precision, food_max double precision
          )
        ), players AS (
          INSERT INTO tpn_players (steam_id)
@@ -325,12 +339,18 @@ export class PostgresStore {
          FROM payload
        )
        INSERT INTO tpn_dinosaurs
-         (steam_id, dinosaur_id, snapshot_at, hp, pawn_address, species, growth, is_active)
-       SELECT steam, dinosaur_id, ts, hp, addr, species, growth, is_active FROM ranked
+         (steam_id, dinosaur_id, snapshot_at, hp, hp_max, pawn_address, species, growth,
+          hunger, hunger_max, thirst, thirst_max, stamina, stamina_max, food, food_max, is_active)
+       SELECT steam, dinosaur_id, ts, hp, hp_max, addr, species, growth,
+              hunger, hunger_max, thirst, thirst_max, stamina, stamina_max, food, food_max, is_active FROM ranked
        ON CONFLICT (steam_id, dinosaur_id) DO UPDATE SET
-         snapshot_at = EXCLUDED.snapshot_at, hp = EXCLUDED.hp,
+         snapshot_at = EXCLUDED.snapshot_at, hp = EXCLUDED.hp, hp_max = EXCLUDED.hp_max,
          pawn_address = EXCLUDED.pawn_address, species = EXCLUDED.species,
-         growth = EXCLUDED.growth, is_active = true, updated_at = now()`,
+         growth = EXCLUDED.growth, hunger = EXCLUDED.hunger, hunger_max = EXCLUDED.hunger_max,
+         thirst = EXCLUDED.thirst, thirst_max = EXCLUDED.thirst_max,
+         stamina = EXCLUDED.stamina, stamina_max = EXCLUDED.stamina_max,
+         food = EXCLUDED.food, food_max = EXCLUDED.food_max,
+         is_active = EXCLUDED.is_active, updated_at = now()`,
       [JSON.stringify(rows.map((row) => ({ ...row, dinosaur_id: row.dinosaurId })))]
     );
   }

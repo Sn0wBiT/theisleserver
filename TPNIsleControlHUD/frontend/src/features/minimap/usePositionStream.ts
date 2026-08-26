@@ -2,19 +2,21 @@ import { createContext, createElement, useContext, useEffect, useMemo, useState,
 import { useOverlayStore } from "@/stores/overlay.store";
 import { consumeAuthenticatedPositionStream, reconnectDelay } from "./stream";
 import { isPositionStale, POSITION_STALE_AFTER_MS } from "./state";
-import type { PositionEvent, StreamStatus } from "./types";
+import type { DinosaurEvent, PositionEvent, StreamStatus } from "./types";
 
-type PositionStreamState = { position: PositionEvent | null; status: StreamStatus; playerPresent: boolean };
+type PositionStreamState = { position: PositionEvent | null; dinosaur: DinosaurEvent | null; status: StreamStatus; playerPresent: boolean };
 const PositionStreamContext = createContext<PositionStreamState | null>(null);
 
 export function PositionStreamProvider({ children }: PropsWithChildren) {
   const [position, setPosition] = useState<PositionEvent | null>(null);
+  const [dinosaur, setDinosaur] = useState<DinosaurEvent | null>(null);
   const [status, setStatus] = useState<StreamStatus>("waiting");
   const enabled = useOverlayStore((state) => state.gameProcessConnected && !state.shuttingDown);
 
   useEffect(() => {
     if (!enabled) {
       setPosition(null);
+      setDinosaur(null);
       setStatus("waiting");
       return;
     }
@@ -32,13 +34,15 @@ export function PositionStreamProvider({ children }: PropsWithChildren) {
       try {
         const response = await consumeAuthenticatedPositionStream(controller.signal, (event) => {
           attempt = 0;
-          setPosition(event);
-          window.clearTimeout(staleTimer);
-          if (isPositionStale(event.updatedAt)) {
-            setPosition(null);
-            setStatus("stale");
-            controller.abort();
-          } else {
+          if ("position" in event) {
+            setPosition(event);
+            window.clearTimeout(staleTimer);
+            if (isPositionStale(event.updatedAt)) {
+              setPosition(null);
+              setStatus("stale");
+              controller.abort();
+              return;
+            }
             setStatus("connected");
             staleTimer = window.setTimeout(
               () => {
@@ -48,17 +52,21 @@ export function PositionStreamProvider({ children }: PropsWithChildren) {
               },
               event.updatedAt + POSITION_STALE_AFTER_MS - Date.now(),
             );
+            return;
           }
+          setDinosaur(event);
         });
         if (stopped) return;
         if (response.status === 401) {
           setPosition(null);
+          setDinosaur(null);
           return setStatus("unauthorized");
         }
-        if (!response.ok) { setPosition(null); setStatus("unavailable"); }
+        if (!response.ok) { setPosition(null); setDinosaur(null); setStatus("unavailable"); }
       } catch {
         if (stopped) return;
         setPosition(null);
+        setDinosaur(null);
       }
       const delay = reconnectDelay(attempt++);
       setStatus("reconnecting");
@@ -73,7 +81,7 @@ export function PositionStreamProvider({ children }: PropsWithChildren) {
     };
   }, [enabled]);
 
-  const value = useMemo(() => ({ position, status, playerPresent: position !== null && status === "connected" }), [position, status]);
+  const value = useMemo(() => ({ position, dinosaur, status, playerPresent: position !== null && status === "connected" }), [position, dinosaur, status]);
   return createElement(PositionStreamContext.Provider, { value }, children);
 }
 

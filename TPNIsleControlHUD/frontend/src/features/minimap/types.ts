@@ -6,6 +6,24 @@ export const positionEventSchema = z.object({
   updatedAt: z.number().finite().nonnegative(),
 });
 
+const nullableNumber = z.number().finite().nullable();
+const dinosaurVitalsSchema = z.object({
+  hp: nullableNumber, hpMax: nullableNumber,
+  hunger: nullableNumber, hungerMax: nullableNumber,
+  thirst: nullableNumber, thirstMax: nullableNumber,
+  stamina: nullableNumber, staminaMax: nullableNumber,
+}).nullable();
+
+export const dinosaurEventSchema = z.object({
+  steamId: z.string().regex(/^\d{17}$/),
+  dinosaurId: z.string().nullable(),
+  species: z.string().nullable(),
+  growth: nullableNumber,
+  snapshotAt: nullableNumber,
+  updatedAt: z.number().finite().nonnegative(),
+  vitals: dinosaurVitalsSchema,
+});
+
 const pointSchema = z.object({ world: z.object({ x: z.number(), y: z.number() }), image: z.object({ x: z.number(), y: z.number() }) });
 
 export const calibrationSchema = z.object({
@@ -22,5 +40,6 @@ export const calibrationSchema = z.object({
 });
 
 export type PositionEvent = z.infer<typeof positionEventSchema>;
+export type DinosaurEvent = z.infer<typeof dinosaurEventSchema>;
 export type Calibration = z.infer<typeof calibrationSchema>;
 export type StreamStatus = "waiting" | "connected" | "stale" | "reconnecting" | "unauthorized" | "unavailable";

@@ -1,6 +1,6 @@
 import { getAccessToken, sharedRefresh, type AuthResult } from "@/services/auth";
 import { apiUrl, rawRequest } from "@/services/api";
-import { positionEventSchema, type PositionEvent } from "./types";
+import { dinosaurEventSchema, positionEventSchema, type DinosaurEvent, type PositionEvent } from "./types";
 
 export const reconnectDelay = (attempt: number) => [1000, 2000, 5000, 10000][Math.min(attempt, 3)];
 
@@ -9,9 +9,14 @@ export function parsePositionEvent(value: string): PositionEvent | null {
   catch { return null; }
 }
 
+export function parseDinosaurEvent(value: string): DinosaurEvent | null {
+  try { return dinosaurEventSchema.parse(JSON.parse(value)); }
+  catch { return null; }
+}
+
 export async function consumePositionStream(
   signal: AbortSignal,
-  onEvent: (event: PositionEvent) => void,
+  onEvent: (event: PositionEvent | DinosaurEvent) => void,
 ): Promise<Response> {
   const baseUrl = apiUrl.replace(/\/$/, "");
   const headers = new Headers({ Accept: "text/event-stream" });
@@ -37,13 +42,17 @@ export async function consumePositionStream(
         const event = parsePositionEvent(data);
         if (event) onEvent(event);
       }
+      if (eventName === "dinosaur" && data) {
+        const event = parseDinosaurEvent(data);
+        if (event) onEvent(event);
+      }
       boundary = buffer.indexOf("\n\n");
     }
   }
   return response;
 }
 
-export async function consumeAuthenticatedPositionStream(signal: AbortSignal, onEvent: (event: PositionEvent) => void) {
+export async function consumeAuthenticatedPositionStream(signal: AbortSignal, onEvent: (event: PositionEvent | DinosaurEvent) => void) {
   let response = await consumePositionStream(signal, onEvent);
   if (response.status !== 401 || signal.aborted) return response;
   const refreshed = await sharedRefresh((refreshToken) => rawRequest<AuthResult>("/api/hud-auth/refresh", {

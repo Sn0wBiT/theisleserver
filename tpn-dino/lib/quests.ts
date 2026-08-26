@@ -7,7 +7,14 @@ export type Quest = {
   takeRequirement?: { minimumGrowth?: number };
 };
 export type CurrentDinosaur = {
+  dinosaurId: string | null;
   species: string | null; growth: number | null; snapshotAt: number | null;
+  vitals: {
+    hp: number | null; hpMax: number | null;
+    hunger: number | null; hungerMax: number | null;
+    thirst: number | null; thirstMax: number | null;
+    stamina: number | null; staminaMax: number | null;
+  } | null;
 };
 export type QuestState = {
   steam: string; tokenBalance: number; currentDinosaur: CurrentDinosaur | null; quests: Quest[];
@@ -34,6 +41,17 @@ export async function getQuests(steamId: string): Promise<QuestState> {
   });
   if (!response.ok) throw new Error(`Quest service returned ${response.status}`);
   return (await response.json()) as QuestState;
+}
+
+export async function getCurrentDinosaur(steamId: string): Promise<CurrentDinosaur | null> {
+  const { baseUrl, token } = apiConfig();
+  const response = await fetch(`${baseUrl}/players/${encodeURIComponent(steamId)}/dinosaur`, {
+    headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+    signal: AbortSignal.timeout(5000),
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Dinosaur service returned ${response.status}`);
+  return (await response.json()) as CurrentDinosaur;
 }
 
 export async function acceptQuest(steamId: string, questId: string): Promise<AcceptQuestResult> {

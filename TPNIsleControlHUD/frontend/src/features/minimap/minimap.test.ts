@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { calibrationSchema } from "./types";
 import { imagePointToLeaflet, worldToMap } from "./calibration";
-import { consumeAuthenticatedPositionStream, parsePositionEvent, reconnectDelay } from "./stream";
+import { consumeAuthenticatedPositionStream, parseDinosaurEvent, parsePositionEvent, reconnectDelay } from "./stream";
 import { clearSession, storeSession } from "@/services/auth";
 import { setApiUrl } from "@/services/api";
 import { followAfterAction, isPositionStale } from "./state";
@@ -40,6 +40,17 @@ describe("position stream", () => {
   it("ignores malformed and cross-shape events", () => {
     expect(parsePositionEvent("not json")).toBeNull();
     expect(parsePositionEvent(JSON.stringify({ steamId: "bad", position: { x: 1, y: 2, z: 3 }, updatedAt: 1 }))).toBeNull();
+  });
+
+  it("parses valid dinosaur events and ignores invalid ones", () => {
+    const event = parseDinosaurEvent(JSON.stringify({
+      steamId: "76561198000000000", dinosaurId: "dino-1", species: "Omniraptor",
+      growth: 0.5, snapshotAt: 123, updatedAt: 456,
+      vitals: { hp: 80, hpMax: 100, hunger: null, hungerMax: 20, thirst: 15, thirstMax: 20, stamina: 30, staminaMax: 40 },
+    }));
+    expect(event?.species).toBe("Omniraptor");
+    expect(parseDinosaurEvent(JSON.stringify({ steamId: "bad", updatedAt: 1 }))).toBeNull();
+    expect(parseDinosaurEvent(JSON.stringify({ steamId: "76561198000000000", updatedAt: 1, vitals: "bad" }))).toBeNull();
   });
 
   it("uses the specified capped reconnect backoff", () => {

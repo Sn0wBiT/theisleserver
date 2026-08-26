@@ -8,6 +8,15 @@ CREATE TABLE IF NOT EXISTS tpn_hud_rate_limits (rate_key text PRIMARY KEY, windo
 
 CREATE TABLE IF NOT EXISTS tpn_players (steam_id varchar(17) PRIMARY KEY, display_name text, avatar_url text, last_seen_at timestamptz, is_online boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS tpn_dinosaurs (steam_id varchar(17) NOT NULL REFERENCES tpn_players(steam_id) ON DELETE CASCADE, dinosaur_id text NOT NULL, snapshot_at bigint NOT NULL, hp double precision, pawn_address text, species text, growth double precision, is_active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (steam_id, dinosaur_id));
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS hp_max double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS hunger double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS hunger_max double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS thirst double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS thirst_max double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS stamina double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS stamina_max double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS food double precision;
+ALTER TABLE tpn_dinosaurs ADD COLUMN IF NOT EXISTS food_max double precision;
 CREATE INDEX IF NOT EXISTS tpn_dinosaurs_player_active ON tpn_dinosaurs (steam_id, is_active, snapshot_at DESC);
 CREATE TABLE IF NOT EXISTS tpn_dinosaur_positions (steam_id varchar(17) NOT NULL, dinosaur_id text NOT NULL, x double precision NOT NULL, y double precision NOT NULL, z double precision NOT NULL, zone_id text, observed_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (steam_id, dinosaur_id), FOREIGN KEY (steam_id, dinosaur_id) REFERENCES tpn_dinosaurs(steam_id, dinosaur_id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS tpn_factions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL UNIQUE, invite_code text NOT NULL UNIQUE, color text NOT NULL DEFAULT '#8b5cf6', leader_steam_id varchar(17) NOT NULL REFERENCES tpn_players(steam_id), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());

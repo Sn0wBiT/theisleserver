@@ -1,10 +1,13 @@
 import { ClipboardList, MapIcon, Users } from "lucide-react";
 import { CompactMinimap } from "@/features/minimap/CompactMinimap";
+import { DinoStatusHud } from "@/features/dino/DinoStatusHud";
+import { usePositionStream } from "@/features/minimap/usePositionStream";
 import { cn } from "@/lib/utils";
 import { postNativeMessage } from "@/services/native-bridge";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export function HudLayer() {
+  const { dinosaur, playerPresent } = usePositionStream();
   const interactive = useOverlayStore((state) => state.interactive);
   const expandedMinimapOpen = useOverlayStore((state) => state.expandedMinimapOpen);
   const setInteractive = useOverlayStore((state) => state.setInteractive);
@@ -29,6 +32,17 @@ export function HudLayer() {
 
   return (
     <div className="absolute inset-0 pointer-events-none">
+      {playerPresent && dinosaur && <DinoStatusHud status={{
+        dinosaurId: dinosaur.dinosaurId,
+        species: dinosaur.species ?? "Unknown species",
+        variant: "Current player dino",
+        health: dinosaur.vitals?.hp ?? null,
+        maxHealth: dinosaur.vitals?.hpMax ?? null,
+        stamina: dinosaur.vitals?.staminaMax ? ((dinosaur.vitals.stamina ?? 0) / dinosaur.vitals.staminaMax) * 100 : null,
+        growth: dinosaur.growth === null ? null : dinosaur.growth * 100,
+        hunger: dinosaur.vitals?.hungerMax ? ((dinosaur.vitals.hunger ?? 0) / dinosaur.vitals.hungerMax) * 100 : null,
+        thirst: dinosaur.vitals?.thirstMax ? ((dinosaur.vitals.thirst ?? 0) / dinosaur.vitals.thirstMax) * 100 : null,
+      }} />}
       {/* Menus */}
       <div id="btn-list" className="relative z-100 left-4 space-y-2">
         {/* Map */}

@@ -71,7 +71,8 @@ test("returns the player's current dinosaur from the latest snapshot", () => {
 
   quests.onSnapshot({ steam: "player-1", ts: 123, species: "Omniraptor", growth: 0.25 });
   assert.deepEqual(quests.getCurrentDinosaur("player-1"), {
-    dinosaurId: null, species: "Omniraptor", growth: 0.25, snapshotAt: 123
+    dinosaurId: null, species: "Omniraptor", growth: 0.25, snapshotAt: 123,
+    vitals: { hp: null, hpMax: null, hunger: null, hungerMax: null, thirst: null, thirstMax: null, stamina: null, staminaMax: null }
   });
 });
 

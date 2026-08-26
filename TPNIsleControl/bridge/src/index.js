@@ -72,7 +72,14 @@ const territoryMaintenance = setInterval(() => {
 territoryMaintenance.unref?.();
 
 for (const [steam, snapshot] of Object.entries(store.data.lastSnapshots)) {
-  livePlayers.set(steam, { steam, ts: snapshot.ts, dinosaurId: snapshot.dinosaurId, growth: snapshot.growth, vitals: { hp: snapshot.hp }, addr: snapshot.addr, species: snapshot.species });
+  livePlayers.set(steam, {
+    steam, ts: snapshot.ts, dinosaurId: snapshot.dinosaurId, growth: snapshot.growth,
+    vitals: snapshot.vitals || {
+      hp: snapshot.hp, hpMax: snapshot.hpMax, hunger: snapshot.hunger, hungerMax: snapshot.hungerMax,
+      thirst: snapshot.thirst, thirstMax: snapshot.thirstMax, stamina: snapshot.stamina, staminaMax: snapshot.staminaMax
+    },
+    addr: snapshot.addr, species: snapshot.species, snapshotUpdatedAt: Date.now()
+  });
 }
 for (const position of Object.values(store.data.positions)) {
   const current = livePlayers.get(position.steam) || { steam: position.steam };
@@ -130,11 +137,15 @@ function processSnapshot(s) {
   if (!s?.steam) return;
 
   const previous = livePlayers.get(s.steam);
+  const snapshotUpdatedAt = Date.now();
 
   livePlayers.set(s.steam, {
     ...s,
-    positionUpdatedAt: s?.pos ? Date.now() : previous?.positionUpdatedAt
+    snapshotUpdatedAt,
+    positionUpdatedAt: s?.pos ? snapshotUpdatedAt : previous?.positionUpdatedAt
   });
+
+  publishDinosaur(s.steam);
 
   if (s.addr) {
     addrToSteam.set(String(s.addr).toLowerCase(), s.steam);
@@ -191,9 +202,39 @@ function positionEvent(steamId, position, updatedAt) {
   return `event: position\ndata: ${JSON.stringify({ steamId, position, updatedAt })}\n\n`;
 }
 
+function numberOrNull(value) {
+  return value === null || value === undefined ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+}
+
+function dinosaurEvent(steamId, current) {
+  const vitals = current?.vitals;
+  return `event: dinosaur\ndata: ${JSON.stringify({
+    steamId,
+    dinosaurId: typeof current?.dinosaurId === "string" ? current.dinosaurId : null,
+    species: typeof current?.species === "string" ? current.species : null,
+    growth: numberOrNull(current?.growth),
+    snapshotAt: numberOrNull(current?.ts),
+    updatedAt: numberOrNull(current?.snapshotUpdatedAt) || Date.now(),
+    vitals: vitals && typeof vitals === "object" ? {
+      hp: numberOrNull(vitals.hp), hpMax: numberOrNull(vitals.hpMax),
+      hunger: numberOrNull(vitals.hunger), hungerMax: numberOrNull(vitals.hungerMax),
+      thirst: numberOrNull(vitals.thirst), thirstMax: numberOrNull(vitals.thirstMax),
+      stamina: numberOrNull(vitals.stamina), staminaMax: numberOrNull(vitals.staminaMax)
+    } : null
+  })}\n\n`;
+}
+
 function publishPosition(steamId, position, updatedAt) {
   for (const response of positionSubscribers.get(steamId) || []) {
     response.write(positionEvent(steamId, position, updatedAt));
+  }
+}
+
+function publishDinosaur(steamId) {
+  const current = livePlayers.get(steamId);
+  if (!/^\d{17}$/.test(String(steamId)) || !current) return;
+  for (const response of positionSubscribers.get(steamId) || []) {
+    response.write(dinosaurEvent(steamId, current));
   }
 }
 
@@ -213,6 +254,9 @@ function streamPosition(req, res, steamId) {
   const current = livePlayers.get(steamId);
   if (current?.pos && current.positionUpdatedAt) {
     res.write(positionEvent(steamId, current.pos, current.positionUpdatedAt));
+  }
+  if (current?.snapshotUpdatedAt || current?.ts) {
+    res.write(dinosaurEvent(steamId, current));
   }
 
   const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
@@ -523,6 +567,21 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/players") {
     return send(res, 200, {
       players: [...livePlayers.values()]
+    });
+  }
+
+  const dinosaur = url.pathname.match(/^\/players\/([^/]+)\/dinosaur$/);
+  if (req.method === "GET" && dinosaur) {
+    const steam = decodeURIComponent(dinosaur[1]);
+    if (!/^\d{17}$/.test(steam)) return send(res, 400, { ok: false, error: "invalid-steam-id" });
+    const current = livePlayers.get(steam);
+    if (!current) return send(res, 404, { ok: false, error: "dinosaur-not-found" });
+    return send(res, 200, {
+      dinosaurId: current.dinosaurId || null,
+      species: current.species || null,
+      growth: current.growth ?? null,
+      snapshotAt: Number(current.ts) || null,
+      vitals: current.vitals || null
     });
   }
 
