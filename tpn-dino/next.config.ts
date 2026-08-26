@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   async headers() {
     const corsHeaders = [
         { key: "Access-Control-Allow-Origin", value: process.env.HUD_ORIGIN ?? "http://dino.tpnrp.local" },
