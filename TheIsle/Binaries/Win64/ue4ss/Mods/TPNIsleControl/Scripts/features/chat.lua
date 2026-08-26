@@ -33,6 +33,21 @@ function Chat.registerHook()
                 -- pass `quests 2`. Parse special commands from a normalized
                 -- value so both forms behave identically.
                 local bareCommand = command:gsub("^/", "")
+                local dinosaurSpecies = bareCommand:match("^spawn%s+([%w_%-]+)%s*$")
+                if dinosaurSpecies ~= nil then
+                    local steam = Players.getControllerSteamId(controller)
+                    if steam == "" then return end
+                    if not Players.isAdmin(steam) then
+                        Messaging.notify(steam, "Bạn không có quyền sử dụng /spawn")
+                        Runtime.log(string.format("admin command /spawn denied for %s", steam))
+                        return
+                    end
+                    local success, message = QuestNpc.spawnDinosaur(steam, dinosaurSpecies)
+                    Messaging.notify(steam, "Dinosaur spawn: " .. tostring(message))
+                    Runtime.log(string.format("spawn dinosaur %s for %s: %s (%s)", dinosaurSpecies, steam,
+                        success and "ok" or "failed", tostring(message)))
+                    return
+                end
                 local spawnQuestId, spawnSpecies, spawnAcceptMode = bareCommand:match(
                     "^spawnquestnpc%s+([%w_%-]+)%s*([%w_%-]*)%s*([%w_%-]*)%s*$")
                 if spawnQuestId ~= nil then
@@ -106,7 +121,7 @@ function Chat.registerHook()
                     sent and "queued" or "transport failed"))
             end)
     end)
-    Runtime.log(ok and "player chat command hook registered (/help, /quests, /accept, /human, /revive)"
+    Runtime.log(ok and "player chat command hook registered (/help, /quests, /accept, /spawn, /human, /revive)"
         or ("player chat command hook failed: " .. tostring(err)))
 end
 
