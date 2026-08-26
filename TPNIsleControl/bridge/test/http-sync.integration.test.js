@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
+const integrationTest = process.env.TEST_DATABASE_URL ? test : test.skip;
+
 async function unusedPort() {
   const server = net.createServer();
   await new Promise((resolve, reject) => {
@@ -29,7 +31,7 @@ async function waitForHealth(url, child) {
   throw new Error("bridge did not become healthy");
 }
 
-test("POST /game/sync ingests a batch and acknowledges returned commands", async (context) => {
+integrationTest("POST /game/sync ingests a batch and acknowledges returned commands", async (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tpnislecontrol-http-"));
   const port = await unusedPort();
   const configFile = path.join(directory, "config.json");
@@ -44,7 +46,7 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
 
   const child = spawn(process.execPath, ["src/index.js"], {
     cwd: path.resolve(import.meta.dirname, ".."),
-    env: { ...process.env, TPNISLECONTROL_CONFIG: configFile },
+    env: { ...process.env, DATABASE_URL: process.env.TEST_DATABASE_URL, TPNISLECONTROL_CONFIG: configFile },
     stdio: "ignore"
   });
   context.after(() => child.kill());
@@ -141,7 +143,7 @@ test("POST /game/sync ingests a batch and acknowledges returned commands", async
   assert.deepEqual(reviveCommand.args, {});
 });
 
-test("position stream authenticates, isolates players, snapshots, updates, and cleans up", async (context) => {
+integrationTest("position stream authenticates, isolates players, snapshots, updates, and cleans up", async (context) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tpnislecontrol-sse-"));
   const port = await unusedPort();
   const configFile = path.join(directory, "config.json");
@@ -156,7 +158,7 @@ test("position stream authenticates, isolates players, snapshots, updates, and c
 
   const child = spawn(process.execPath, ["src/index.js"], {
     cwd: path.resolve(import.meta.dirname, ".."),
-    env: { ...process.env, TPNISLECONTROL_CONFIG: configFile },
+    env: { ...process.env, DATABASE_URL: process.env.TEST_DATABASE_URL, TPNISLECONTROL_CONFIG: configFile },
     stdio: "ignore"
   });
   context.after(() => child.kill());

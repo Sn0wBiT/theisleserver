@@ -128,6 +128,7 @@ export class QuestEngine {
 
     const previous = this.store.data.lastSnapshots[steam];
     const ts = Number(snapshot.ts || 0);
+    if (previous && ts < Number(previous.ts || 0)) return false;
 
     if (previous && ts > previous.ts) {
       // Clamp to prevent downtime / file replay from awarding huge playtime.
@@ -160,6 +161,7 @@ export class QuestEngine {
     };
 
     this.store.saveSnapshot?.(steam, this.store.data.lastSnapshots[steam]);
+    return true;
   }
 
   onPlayerKill(killerSteam) {
@@ -176,7 +178,7 @@ export class QuestEngine {
     });
   }
 
-  accept(steam, questId) {
+  async accept(steam, questId) {
     const q = this.definitions.find((x) => x.id === questId);
     if (!q) return { ok: false, error: "quest-not-found" };
 
@@ -196,20 +198,16 @@ export class QuestEngine {
       };
     }
 
-    const state = this._entry(steam, q);
-
-    // Do not carry forward any progress written by versions that predate
-    // opt-in quests. Progress begins only after the player accepts it.
-    state.accepted = true;
-    state.progress = 0;
-    state.completed = false;
-    state.claimed = false;
-    this.store.saveQuest?.(key);
+    const state = { accepted: true, progress: 0, completed: false, claimed: false };
+    if (this.store.saveQuest) {
+      await this.store.saveQuest(key, state);
+    }
+    this.store.data.questProgress[key] = state;
 
     return { ok: true, questId, accepted: true };
   }
 
-  claim(steam, questId) {
+  async claim(steam, questId) {
     const q = this.definitions.find((x) => x.id === questId);
     if (!q) return { ok: false, error: "quest-not-found" };
 
@@ -220,17 +218,17 @@ export class QuestEngine {
     if (!state.completed) return { ok: false, error: "not-complete" };
     if (state.claimed) return { ok: false, error: "already-claimed" };
 
-    state.claimed = true;
-
     const reward = Number(q.rewardTokens || 0);
-    const old = Number(this.store.data.tokenBalances[steam] || 0);
-    this.store.data.tokenBalances[steam] = old + reward;
-    this.store.saveClaim?.(key, steam);
+    const tokenBalance = this.store.claimQuest
+      ? await this.store.claimQuest(key, steam, reward)
+      : Number(this.store.data.tokenBalances[steam] || 0) + reward;
+    state.claimed = true;
+    this.store.data.tokenBalances[steam] = tokenBalance;
 
     return {
       ok: true,
       rewardTokens: reward,
-      tokenBalance: this.store.data.tokenBalances[steam]
+      tokenBalance
     };
   }
 }

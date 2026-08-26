@@ -7,8 +7,6 @@ test("formats every player chat command", () => {
   for (const { name, description } of PLAYER_COMMANDS) {
     assert.ok(message.includes(`${name} - ${description}`));
   }
-  assert.deepEqual(PLAYER_COMMANDS.map(({ name }) => name), ["/help", "/quests [trang]", "/accept <quest-id>"]);
-  assert.ok(!message.includes("/human"));
-  assert.ok(!message.includes("/revive"));
+  assert.deepEqual(PLAYER_COMMANDS.map(({ name }) => name), ["/help", "/quests [trang]", "/accept <quest-id>", "/human", "/revive"]);
   assert.ok(!message.includes("/spawnquestnpc"));
 });

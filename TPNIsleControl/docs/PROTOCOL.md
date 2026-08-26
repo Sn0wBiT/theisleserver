@@ -20,7 +20,8 @@ updates every `positionIntervalMs` (100 ms by default). These contain the Steam
 ID, dinosaur ID, and Unreal `x`, `y`, and `z` coordinates. The bridge caches them
 for latency-sensitive consumers and batches them into `tpn_dinosaur_positions`.
 
-The bridge keeps live snapshots and pending commands in memory, while player,
+The bridge keeps live snapshots in memory. Pending HTTP commands are mirrored to
+a private journal under `modSavedDir`, while player,
 dinosaur, position, quest, token, faction, and territory state is persisted in
 PostgreSQL. PostgreSQL setup is documented in
 [POSTGRESQL_SETUP.md](./POSTGRESQL_SETUP.md).
@@ -29,8 +30,10 @@ Commands are returned as NDJSON and are retained by the bridge until Lua sends
 their IDs in `acknowledgements`. Lua also deduplicates command IDs for one hour.
 
 With `gameTransport` set to `auto`, the bridge sends commands over HTTP after a
-recent game sync and otherwise uses `commands.ndjson`. This permits safe rollout
-and automatic fallback while the game server is restarting.
+recent game sync. After 30 seconds without a sync it appends queued commands to
+`commands.ndjson` and removes them from the HTTP journal only after that append
+succeeds. Command IDs are preserved for game-side deduplication. The pending HTTP
+queue is bounded by `maxPendingHttpCommands` (default `1000`).
 
 ## File fallback
 
@@ -153,3 +156,8 @@ fallback. Each record contains `event_id`, `steam`, `zone_id`,
 existence, then writes the idempotent ledger event and territory state in one
 PostgreSQL transaction. Replaying the same `event_id` is safe and does not add
 influence twice. PostgreSQL is authoritative; NDJSON is transport only.
+
+Territory ownership is a fixed lease. Owner activity records influence but does
+not extend the expiry or create another capture event. Expiry clears ownership,
+capture timestamps, total influence, and per-faction influence, so recapture
+starts from zero.

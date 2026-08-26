@@ -53,6 +53,7 @@ const eventsPath = path.join(config.modSavedDir, "events.ndjson");
 const nativeEventsPath = path.join(config.modSavedDir, "native-events.ndjson");
 const commandsPath = path.join(config.modSavedDir, "commands.ndjson");
 const resultsPath = path.join(config.modSavedDir, "results.ndjson");
+const pendingCommandsPath = path.join(config.modSavedDir, "pending-http-commands.ndjson");
 
 fs.mkdirSync(config.modSavedDir, { recursive: true });
 
@@ -63,7 +64,10 @@ const territorySubscribers = new Set();
 const addrToSteam = new Map(); // pawn address -> steam
 const recentDamage = new Map(); // victim address -> { attackerAddr, ts }
 const recentAiDeaths = new Map(); // AI address -> death timestamp
-const pendingHttpCommands = new PendingCommandQueue();
+const pendingHttpCommands = new PendingCommandQueue({
+  journalPath: pendingCommandsPath,
+  maxSize: config.maxPendingHttpCommands ?? 1000
+});
 let lastHttpSyncAt = 0;
 
 const territoryMaintenance = setInterval(() => {
@@ -137,6 +141,8 @@ function processSnapshot(s) {
   if (!s?.steam) return;
 
   const previous = livePlayers.get(s.steam);
+  const timestamp = Number(s.ts || 0);
+  if (previous && timestamp < Number(previous.ts || 0)) return;
   const snapshotUpdatedAt = Date.now();
 
   livePlayers.set(s.steam, {
@@ -147,6 +153,10 @@ function processSnapshot(s) {
 
   publishDinosaur(s.steam);
 
+  if (previous?.addr && String(previous.addr).toLowerCase() !== String(s.addr || "").toLowerCase()) {
+    const oldAddress = String(previous.addr).toLowerCase();
+    if (addrToSteam.get(oldAddress) === s.steam) addrToSteam.delete(oldAddress);
+  }
   if (s.addr) {
     addrToSteam.set(String(s.addr).toLowerCase(), s.steam);
   }
@@ -167,7 +177,8 @@ function processSnapshot(s) {
     const victimAddr = String(s.addr).toLowerCase();
     const hit = recentDamage.get(victimAddr);
 
-    if (hit && Number(s.ts || 0) - hit.ts <= Number(config.combatWindowSec || 20)) {
+    const delta = Number(s.ts || 0) - Number(hit?.ts);
+    if (hit && delta >= 0 && delta <= Number(config.combatWindowSec || 20)) {
       const killerSteam = addrToSteam.get(hit.attackerAddr);
       const victimSteam = s.steam;
 
@@ -279,7 +290,8 @@ function processNativeEvent(e) {
     if ((recentAiDeaths.get(targetAddr) || 0) >= ts - 60) return;
 
     const hit = recentDamage.get(targetAddr);
-    if (!hit || ts - hit.ts > Number(config.combatWindowSec || 20)) return;
+    const delta = ts - Number(hit?.ts);
+    if (!hit || delta < 0 || delta > Number(config.combatWindowSec || 20)) return;
     const killerSteam = addrToSteam.get(hit.attackerAddr);
     if (!killerSteam) return;
 
@@ -295,7 +307,8 @@ function processNativeEvent(e) {
   const targetAddr = String(e.target_addr || "").toLowerCase();
   const ts = Number(e.ts || 0);
 
-  if (!attackerAddr || !targetAddr || !ts) return;
+  const now = Math.floor(Date.now() / 1000);
+  if (!attackerAddr || !targetAddr || !Number.isFinite(ts) || ts <= 0 || ts > now + 5) return;
 
   recentDamage.set(targetAddr, { attackerAddr, ts });
 
@@ -332,7 +345,7 @@ function processQuestRequest(e) {
   appendCommand({ verb: "notify", steam, args: { message: `${messages[page - 1]}${navigation}` } });
 }
 
-function processQuestAccept(e) {
+async function processQuestAccept(e) {
   const steam = String(e?.steam || "");
   const questId = String(e?.questId || "");
   const requestedAt = Number(e?.ts || 0);
@@ -340,7 +353,9 @@ function processQuestAccept(e) {
   if (!steam || !questId || !requestedAt) return;
   if (requestedAt < now - 30 || requestedAt > now + 5) return;
 
-  const result = questEngine.accept(steam, questId);
+  let result;
+  try { result = await questEngine.accept(steam, questId); }
+  catch (error) { console.error("[quest] acceptance persistence failed", error); return; }
   const message = result.ok
     ? `Đã nhận nhiệm vụ: ${questId}. Tiến độ hiện bắt đầu được theo dõi.`
     : result.error === "already-accepted"
@@ -425,7 +440,7 @@ setInterval(() => {
   tail(eventsPath, (e) => {
     if (e.type === "snapshot") processSnapshot(e);
     if (e.type === "quest_request") processQuestRequest(e);
-    if (e.type === "quest_accept") processQuestAccept(e);
+    if (e.type === "quest_accept") processQuestAccept(e).catch((error) => console.error("[quest] accept failed", error));
     if (e.type === "help_request") processHelpRequest(e);
     if (e.type === "human_request") processHumanRequest(e);
     if (e.type === "revive_request") processReviveRequest(e);
@@ -456,6 +471,20 @@ function appendCommand(command) {
   fs.appendFileSync(commandsPath, JSON.stringify(queued) + "\n");
   return queued;
 }
+
+function transferStaleHttpCommands() {
+  if (config.gameTransport !== "auto" || Date.now() - lastHttpSyncAt < 30000) return;
+  const commands = pendingHttpCommands.list();
+  if (!commands.length) return;
+  fs.appendFileSync(commandsPath, commands.map((command) => JSON.stringify(command)).join("\n") + "\n");
+  pendingHttpCommands.remove(commands.map(({ id }) => id));
+}
+
+const commandTransferTimer = setInterval(() => {
+  try { transferStaleHttpCommands(); }
+  catch (error) { console.error("[command] automatic transfer failed", error); }
+}, 1000);
+commandTransferTimer.unref?.();
 
 function authorized(req) {
   if (!config.apiToken) return false;
@@ -492,16 +521,23 @@ function sendNdjson(res, status, values) {
 
 function bodyJson(req) {
   return new Promise((resolve, reject) => {
-    let body = "";
+    const chunks = [];
+    let bytes = 0;
+    let settled = false;
     req.on("data", (chunk) => {
-      body += chunk;
-      if (body.length > 1024 * 1024) {
+      bytes += chunk.length;
+      if (bytes > 1024 * 1024) {
+        settled = true;
         reject(new Error("body-too-large"));
-        req.destroy();
+        req.resume();
+        return;
       }
+      chunks.push(chunk);
     });
     req.on("end", () => {
+      if (settled) return;
       try {
+        const body = Buffer.concat(chunks).toString("utf8");
         resolve(body ? JSON.parse(body) : {});
       } catch (error) {
         reject(error);
@@ -511,8 +547,13 @@ function bodyJson(req) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+async function handleRequest(req, res) {
+  let url;
+  try {
+    url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    decodeURI(url.pathname);
+  }
+  catch { return send(res, 400, { ok: false, error: "invalid-url-encoding" }); }
 
   if (req.method === "GET" && url.pathname === "/health") {
     return send(res, 200, {
@@ -545,7 +586,7 @@ const server = http.createServer(async (req, res) => {
         for (const position of sync.positions) processPosition(position);
         for (const event of sync.events) {
           if (event?.type === "quest_request") processQuestRequest(event);
-          if (event?.type === "quest_accept") processQuestAccept(event);
+          if (event?.type === "quest_accept") await processQuestAccept(event);
           if (event?.type === "help_request") processHelpRequest(event);
           if (event?.type === "human_request") processHumanRequest(event);
           if (event?.type === "revive_request") processReviveRequest(event);
@@ -556,7 +597,10 @@ const server = http.createServer(async (req, res) => {
 
       return sendNdjson(res, 200, pendingHttpCommands.list());
     } catch (error) {
-      return send(res, 400, { ok: false, error: String(error.message || error) });
+      const code = error?.message === "body-too-large" ? "body-too-large" :
+        error?.message === "command-queue-full" ? "command-queue-full" :
+          error instanceof SyntaxError || /-must-be-|-limit-exceeded|required$/.test(String(error?.message)) ? String(error.message) : "service-unavailable";
+      return send(res, code === "service-unavailable" || code === "command-queue-full" ? 503 : 400, { ok: false, error: code });
     }
   }
 
@@ -615,7 +659,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && claim) {
     const steam = decodeURIComponent(claim[1]);
     const questId = decodeURIComponent(claim[2]);
-    const result = questEngine.claim(steam, questId);
+    const result = await questEngine.claim(steam, questId);
 
     if (result.ok) {
       appendCommand({
@@ -635,7 +679,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && accept) {
     const steam = decodeURIComponent(accept[1]);
     const questId = decodeURIComponent(accept[2]);
-    const result = questEngine.accept(steam, questId);
+    const result = await questEngine.accept(steam, questId);
     return send(res, result.ok ? 200 : 400, result);
   }
 
@@ -649,7 +693,10 @@ const server = http.createServer(async (req, res) => {
       const queued = appendCommand(input);
       return send(res, 202, { ok: true, queued });
     } catch (error) {
-      return send(res, 400, { ok: false, error: String(error) });
+      if (error?.message === "body-too-large") return send(res, 400, { ok: false, error: "body-too-large" });
+      if (error?.message === "command-queue-full") return send(res, 503, { ok: false, error: "command-queue-full" });
+      if (error instanceof SyntaxError) return send(res, 400, { ok: false, error: "invalid-json" });
+      throw error;
     }
   }
 
@@ -671,6 +718,14 @@ const server = http.createServer(async (req, res) => {
   }
 
   return send(res, 404, { ok: false, error: "not-found" });
+}
+
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch((error) => {
+    console.error("[http] request failed", error);
+    if (!res.headersSent) send(res, 503, { ok: false, error: "service-unavailable" });
+    else if (!res.writableEnded) res.end();
+  });
 });
 
 server.listen(Number(config.port || 31990), config.host || "127.0.0.1", () => {
@@ -686,6 +741,7 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   clearInterval(territoryMaintenance);
+  clearInterval(commandTransferTimer);
   console.log(`[shutdown] ${signal}; flushing PostgreSQL state`);
   try {
     await new Promise((resolve, reject) => {

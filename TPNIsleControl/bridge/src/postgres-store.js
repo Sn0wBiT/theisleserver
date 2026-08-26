@@ -25,6 +25,7 @@ export class PostgresStore {
     this.pending = Promise.resolve();
     this.dirtyPositions = new Map();
     this.positionTimer = null;
+    this.retryDelayMs = 250;
     this.data = {
       questProgress: {},
       tokenBalances: {},
@@ -171,10 +172,10 @@ export class PostgresStore {
         let committedState = state.rows[0];
         const threshold = Number(activity.captureThreshold || 100);
         const factionInfluence = Number(committedState.influence_by_faction?.[factionId] || 0);
-        if ((!committedState.owner_faction_id || committedState.owner_faction_id === factionId) && factionInfluence >= threshold) {
+        if (!committedState.owner_faction_id && factionInfluence >= threshold) {
           const captured = await client.query(`UPDATE tpn_territory_states SET owner_faction_id = $1,
             status = 'owned', captured_at = now(), expires_at = now() + ($2 * interval '1 hour'), updated_at = now()
-            WHERE zone_id = $3 AND (owner_faction_id IS NULL OR owner_faction_id = $1)
+            WHERE zone_id = $3 AND owner_faction_id IS NULL
             RETURNING zone_id, status, influence, influence_by_faction, owner_faction_id, expires_at`, [factionId, Number(activity.ownershipHours || 72), zoneId]);
           if (captured.rowCount) {
             committedState = captured.rows[0];
@@ -196,8 +197,8 @@ export class PostgresStore {
       const client = await this.pool.connect();
       try {
         await client.query("BEGIN");
-        const expired = await client.query(`UPDATE tpn_territory_states SET status = 'expired', owner_faction_id = NULL,
-          influence = 0, expires_at = NULL, updated_at = now()
+        const expired = await client.query(`UPDATE tpn_territory_states SET status = 'neutral', owner_faction_id = NULL,
+          influence = 0, influence_by_faction = '{}'::jsonb, captured_at = NULL, expires_at = NULL, updated_at = now()
           WHERE status = 'owned' AND expires_at IS NOT NULL AND expires_at <= now()
           RETURNING zone_id`);
         for (const row of expired.rows) {
@@ -214,8 +215,20 @@ export class PostgresStore {
   }
 
   enqueue(operation) {
-    this.pending = this.pending.then(operation);
-    return this.pending;
+    const result = this.pending.then(operation);
+    this.pending = result.catch(() => undefined);
+    return result;
+  }
+
+  scheduleRetry(kind) {
+    const timerName = kind === "snapshot" ? "snapshotTimer" : "positionTimer";
+    if (this[timerName]) return;
+    this[timerName] = setTimeout(
+      () => (kind === "snapshot" ? this.flushSnapshots() : this.flushPositions())
+        .catch((error) => console.error(`[store] ${kind} retry failed`, error)),
+      Math.min(this.snapshotFlushMs, this.retryDelayMs)
+    );
+    this[timerName].unref?.();
   }
 
   saveSnapshot(steam, snapshot) {
@@ -237,13 +250,21 @@ export class PostgresStore {
     }
   }
 
-  flushPositions() {
+  async flushPositions() {
     if (this.positionTimer) clearTimeout(this.positionTimer);
     this.positionTimer = null;
-    const rows = [...this.dirtyPositions.values()];
-    this.dirtyPositions.clear();
+    const batch = new Map(this.dirtyPositions);
+    const rows = [...batch.values()];
     if (!rows.length) return this.pending;
-    return this.enqueue(() => this.upsertPositions(rows));
+    try {
+      await this.enqueue(() => this.upsertPositions(rows));
+      for (const [key, row] of batch) {
+        if (this.dirtyPositions.get(key) === row) this.dirtyPositions.delete(key);
+      }
+    } catch (error) {
+      this.scheduleRetry("position");
+      throw error;
+    }
   }
 
   upsertPositions(rows, executor = this.pool) {
@@ -256,7 +277,8 @@ export class PostgresStore {
          ON CONFLICT (steam_id, dinosaur_id) DO NOTHING
        ) INSERT INTO tpn_dinosaur_positions (steam_id, dinosaur_id, x, y, z, observed_at)
        SELECT steam, COALESCE(NULLIF(dinosaur_id, ''), 'legacy'), x, y, z, to_timestamp(updated_at / 1000.0) FROM payload
-       ON CONFLICT (steam_id, dinosaur_id) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y, z = EXCLUDED.z, observed_at = EXCLUDED.observed_at, updated_at = now()`,
+       ON CONFLICT (steam_id, dinosaur_id) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y, z = EXCLUDED.z, observed_at = EXCLUDED.observed_at, updated_at = now()
+       WHERE tpn_dinosaur_positions.observed_at <= EXCLUDED.observed_at`,
       [JSON.stringify(rows.map((row) => ({
         ...row,
         dinosaur_id: row.dinosaurId,
@@ -265,27 +287,29 @@ export class PostgresStore {
     );
   }
 
-  saveQuest(key) {
-    const state = this.data.questProgress[key];
+  saveQuest(key, nextState) {
+    const state = nextState || this.data.questProgress[key];
     if (!state) return;
     const { steam, questId, window } = splitQuestKey(key);
-    this.enqueue(() => this.upsertQuest(steam, questId, window, state));
+    return this.enqueue(() => this.upsertQuest(steam, questId, window, { ...state }));
   }
 
-  saveClaim(key, steam) {
-    const state = { ...this.data.questProgress[key] };
-    const balance = Number(this.data.tokenBalances[steam] || 0);
+  claimQuest(key, steam, reward) {
     const parsed = splitQuestKey(key);
-    this.enqueue(async () => {
+    return this.enqueue(async () => {
       const client = await this.pool.connect();
       try {
         await client.query("BEGIN");
-        await this.upsertQuest(parsed.steam, parsed.questId, parsed.window, state, client);
-        await client.query(
-          "INSERT INTO tpn_token_balances (steam_id, balance) VALUES ($1, $2) ON CONFLICT (steam_id) DO UPDATE SET balance = EXCLUDED.balance, updated_at = now()",
-          [steam, balance]
-        );
+        const claimed = await client.query(`UPDATE tpn_quest_progress SET claimed = true, updated_at = now()
+          WHERE steam_id = $1 AND quest_id = $2 AND window_key = $3
+            AND accepted = true AND completed = true AND claimed = false RETURNING claimed`,
+          [parsed.steam, parsed.questId, parsed.window]);
+        if (!claimed.rowCount) throw new Error("quest-not-claimable");
+        const balance = await client.query(`INSERT INTO tpn_token_balances (steam_id, balance) VALUES ($1, $2)
+          ON CONFLICT (steam_id) DO UPDATE SET balance = tpn_token_balances.balance + EXCLUDED.balance, updated_at = now()
+          RETURNING balance`, [steam, Number(reward || 0)]);
         await client.query("COMMIT");
+        return Number(balance.rows[0].balance);
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;
@@ -312,13 +336,21 @@ export class PostgresStore {
     );
   }
 
-  flushSnapshots() {
+  async flushSnapshots() {
     if (this.snapshotTimer) clearTimeout(this.snapshotTimer);
     this.snapshotTimer = null;
-    const rows = [...this.dirtySnapshots.values()].filter((row) => row.steam);
-    this.dirtySnapshots.clear();
+    const batch = new Map(this.dirtySnapshots);
+    const rows = [...batch.values()].filter((row) => row.steam);
     if (!rows.length) return this.pending;
-    return this.enqueue(() => this.upsertSnapshots(rows));
+    try {
+      await this.enqueue(() => this.upsertSnapshots(rows));
+      for (const [key, row] of batch) {
+        if (this.dirtySnapshots.get(key) === row) this.dirtySnapshots.delete(key);
+      }
+    } catch (error) {
+      this.scheduleRetry("snapshot");
+      throw error;
+    }
   }
 
   upsertSnapshots(rows, executor = this.pool) {
@@ -338,14 +370,17 @@ export class PostgresStore {
          INSERT INTO tpn_players (steam_id)
          SELECT DISTINCT steam FROM payload
          ON CONFLICT (steam_id) DO UPDATE SET updated_at = now()
+       ), eligible AS (
+         SELECT p.* FROM payload p
+         WHERE p.ts >= COALESCE((SELECT max(d.snapshot_at) FROM tpn_dinosaurs d WHERE d.steam_id = p.steam), p.ts)
        ), inactive AS (
          UPDATE tpn_dinosaurs SET is_active = false, updated_at = now()
-         WHERE steam_id IN (SELECT steam FROM payload)
+         WHERE steam_id IN (SELECT steam FROM eligible)
        ), ranked AS (
          SELECT *, row_number() OVER (
            PARTITION BY steam ORDER BY ts DESC, dinosaur_id
          ) = 1 AS is_active
-         FROM payload
+         FROM eligible
        )
        INSERT INTO tpn_dinosaurs
          (steam_id, dinosaur_id, snapshot_at, hp, hp_max, pawn_address, species, growth,
@@ -359,7 +394,8 @@ export class PostgresStore {
          thirst = EXCLUDED.thirst, thirst_max = EXCLUDED.thirst_max,
          stamina = EXCLUDED.stamina, stamina_max = EXCLUDED.stamina_max,
          food = EXCLUDED.food, food_max = EXCLUDED.food_max,
-         is_active = EXCLUDED.is_active, updated_at = now()`,
+         is_active = EXCLUDED.is_active, updated_at = now()
+       WHERE tpn_dinosaurs.snapshot_at <= EXCLUDED.snapshot_at`,
       [JSON.stringify(rows.map((row) => ({ ...row, dinosaur_id: row.dinosaurId })))]
     );
   }

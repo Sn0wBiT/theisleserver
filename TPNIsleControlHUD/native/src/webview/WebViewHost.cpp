@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <regex>
 #include <sstream>
@@ -505,14 +506,16 @@ void WebViewHost::HandleMessage(const std::wstring& json) {
         if (commandHandler_) commandHandler_(L"app.frontendReady", false, L"");
     } else if (hasType(L"app.openLogin")) {
         const std::wregex codePattern(LR"regex("browserCode"\s*:\s*"([A-Za-z0-9_-]{32})")regex");
-        const std::wregex productionOrigin(LR"(^https://[A-Za-z0-9.-]+(?::[0-9]+)?$)");
-        const std::wregex developmentOrigin(LR"(^http://(?:localhost|127\.0\.0\.1)(?::[0-9]+)?$)");
+        const std::wregex configuredOrigin(LR"(^https?://[A-Za-z0-9.-]+(?::[0-9]+)?$)");
         std::wsmatch match;
-        const bool originAllowed = std::regex_match(apiOrigin_, productionOrigin) ||
-                                   (development_ && std::regex_match(apiOrigin_, developmentOrigin));
+        const bool originAllowed = std::regex_match(apiOrigin_, configuredOrigin);
         if (originAllowed && std::regex_search(json, match, codePattern)) {
             const std::wstring url = apiOrigin_ + L"/hud/connect?code=" + match[1].str();
-            ShellExecuteW(nullptr, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+            const auto result = reinterpret_cast<std::intptr_t>(
+                ShellExecuteW(nullptr, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+            if (statusHandler_) statusHandler_(result > 32 ? L"browser login requested" : L"browser login request failed");
+        } else if (statusHandler_) {
+            statusHandler_(L"browser login request rejected");
         }
     } else if (hasType(L"app.launchGame")) {
         const std::wregex addressPattern(LR"regex("serverAddress"\s*:\s*"([A-Za-z0-9.:-]+)")regex");

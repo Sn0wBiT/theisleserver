@@ -25,6 +25,7 @@ add_subdirectory("${CEF_LIBCEF_DLL_WRAPPER_PATH}" "${CMAKE_BINARY_DIR}/libcef_dl
 ADD_LOGICAL_TARGET("libcef_lib" "${CEF_LIB_DEBUG}" "${CEF_LIB_RELEASE}")
 
 add_executable(TPNIsleControlHUD WIN32
+  resources/TPNIsleControlHUD.rc
   src/main.cpp
   src/app/Application.cpp
   src/cef/CefApplication.cpp

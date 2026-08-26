@@ -475,3 +475,12 @@ cannot be read, the endpoint returns an empty `results` array.
 Results are a rolling view of the file's final 100 rows, not a per-client queue.
 Clients should use unique IDs and persist their last known result locally when
 reliable delivery tracking is required.
+
+## Operational errors
+
+Controlled failures use `{ "ok": false, "error": "<stable-code>" }`. The bridge
+returns `400 body-too-large` when a request exceeds 1 MiB (measured in bytes),
+`400 invalid-url-encoding` for malformed path escapes, `503 command-queue-full`
+when the configured pending HTTP command limit is reached, and sanitized
+`503 service-unavailable` responses for database, journal, or other service
+failures. Successful response bodies and NDJSON command formats are unchanged.

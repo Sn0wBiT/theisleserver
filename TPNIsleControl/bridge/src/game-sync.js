@@ -35,20 +35,47 @@ function validateEvent(event) {
 }
 
 export class PendingCommandQueue {
-  constructor() {
+  constructor({ journalPath = null, maxSize = 1000 } = {}) {
     this.commands = new Map();
+    this.journalPath = journalPath;
+    this.maxSize = Math.max(1, Number(maxSize) || 1000);
+    if (journalPath && fs.existsSync(journalPath)) {
+      for (const line of fs.readFileSync(journalPath, "utf8").split(/\r?\n/).filter(Boolean)) {
+        try { const command = JSON.parse(line); if (command?.id) this.commands.set(String(command.id), command); }
+        catch { /* A corrupt private journal entry must not prevent startup. */ }
+      }
+    }
   }
 
   add(command) {
+    if (!this.commands.has(String(command.id)) && this.commands.size >= this.maxSize) {
+      throw new Error("command-queue-full");
+    }
     this.commands.set(command.id, command);
+    this.persist();
     return command;
   }
 
   acknowledge(ids) {
-    for (const id of ids) this.commands.delete(String(id));
+    let changed = false;
+    for (const id of ids) changed = this.commands.delete(String(id)) || changed;
+    if (changed) this.persist();
   }
 
   list() {
     return [...this.commands.values()];
   }
+
+  remove(ids) { this.acknowledge(ids); }
+
+  persist() {
+    if (!this.journalPath) return;
+    fs.mkdirSync(path.dirname(this.journalPath), { recursive: true });
+    const temporary = `${this.journalPath}.tmp`;
+    const body = this.list().map((command) => JSON.stringify(command)).join("\n");
+    fs.writeFileSync(temporary, body ? `${body}\n` : "");
+    fs.renameSync(temporary, this.journalPath);
+  }
 }
+import fs from "node:fs";
+import path from "node:path";

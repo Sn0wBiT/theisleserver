@@ -96,6 +96,7 @@ void Application::Tick() {
         if (connected && IsIconic(overlay_.GetHandle())) ShowWindow(overlay_.GetHandle(), SW_RESTORE);
         SetMode(connected ? OverlayMode::Hud : OverlayMode::Interactive);
     }
+    if (IsIconic(overlay_.GetHandle())) return;
     if (!connected) {
         overlay_.SetLauncherMode(true);
         overlay_.SetLauncherBounds();
@@ -173,7 +174,7 @@ void Application::HandleWebCommand(const std::wstring& type, bool value, const s
         Log(result > 32 ? L"The Isle launch requested" : L"The Isle launch request failed");
     }
     else if (type == L"app.minimize") ShowWindow(overlay_.GetHandle(), SW_MINIMIZE);
-    else if (type == L"app.exit") PostMessageW(overlay_.GetHandle(), WM_CLOSE, 0, 0);
+    else if (type == L"app.exit") PostQuitMessage(0);
 }
 
 void Application::SendFrontendState() {

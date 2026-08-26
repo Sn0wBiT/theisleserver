@@ -50,6 +50,7 @@ export function Launcher() {
   }, []);
 
   function startDrag(event: ReactPointerEvent<HTMLElement>) {
+    if (event.target instanceof Element && event.target.closest("button, a, input, select, textarea, [role='button']")) return;
     const rect = launcherRef.current?.getBoundingClientRect();
     if (!rect) return;
     event.currentTarget.setPointerCapture(event.pointerId);

@@ -63,3 +63,29 @@ test("maps position timestamps to the database field name", async () => {
   assert.equal(rows[0].dinosaur_id, "dino-a");
   assert.equal(rows[0].updated_at, 1700000000000);
 });
+
+test("continues serialized work after an operation rejects", async () => {
+  const store = new PostgresStore({});
+  await assert.rejects(store.enqueue(() => Promise.reject(new Error("failed"))), /failed/);
+  assert.equal(await store.enqueue(() => 42), 42);
+});
+
+test("retains failed snapshot batches and preserves newer writes during a flush", async () => {
+  let rejectWrite;
+  const store = new PostgresStore({ query: () => new Promise((resolve, reject) => { rejectWrite = reject; }) }, 5000);
+  store.saveSnapshot("steam-1", { dinosaurId: "dino", ts: 1 });
+  const flushing = store.flushSnapshots();
+  await new Promise((resolve) => setImmediate(resolve));
+  store.saveSnapshot("steam-1", { dinosaurId: "dino", ts: 2 });
+  rejectWrite(new Error("database-down"));
+  await assert.rejects(flushing, /database-down/);
+  assert.equal(store.dirtySnapshots.get("steam-1:dino").ts, 2);
+  clearTimeout(store.snapshotTimer);
+});
+
+test("snapshot upserts guard against timestamp regression", async () => {
+  let statement;
+  const store = new PostgresStore({ query(sql) { statement = sql; return Promise.resolve({ rows: [] }); } });
+  await store.upsertSnapshots([{ steam: "s", dinosaurId: "d", ts: 1 }]);
+  assert.match(statement, /tpn_dinosaurs\.snapshot_at <= EXCLUDED\.snapshot_at/);
+});

@@ -4,6 +4,7 @@
   "apiToken": "CHANGE_ME",
   "gameToken": "",
   "gameTransport": "auto",
+  "maxPendingHttpCommands": 1000,
   "databasePoolSize": 10,
   "snapshotFlushMs": 5000,
   "territoryCaptureThreshold": 100,

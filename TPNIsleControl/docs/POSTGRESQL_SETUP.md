@@ -123,3 +123,10 @@ pg_dump -Fc -d "postgresql://tpnislecontrol@127.0.0.1:5432/tpnislecontrol" -f D:
 Restore a PostgreSQL custom-format dump with `pg_restore` while the services are
 stopped. NDJSON is only a game transport fallback; it is not a backup or durable
 store.
+
+## Integration tests
+
+PostgreSQL integration tests run only when `TEST_DATABASE_URL` points to a
+disposable test database. They never fall back to the bridge's normal
+`DATABASE_URL`; without `TEST_DATABASE_URL`, `npm test` reports those tests as
+skipped while running the unit suite.
