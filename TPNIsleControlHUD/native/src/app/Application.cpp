@@ -4,6 +4,8 @@
 
 #include <cstdint>
 #include <fstream>
+#include <regex>
+#include <shellapi.h>
 #include <sstream>
 #include <windowsx.h>
 
@@ -33,7 +35,7 @@ int Application::Run() {
         if (message.message == WM_HOTKEY && message.wParam == InputManager::ToggleHotkeyId) {
             SetMode(mode_ == OverlayMode::Hud ? OverlayMode::Interactive : OverlayMode::Hud);
         } else if (message.message == WM_HOTKEY && message.wParam == InputManager::MapHotkeyId) {
-            HandleWebCommand(L"overlay.openMap", false);
+            HandleWebCommand(L"overlay.openMap", false, L"");
         } else if (message.message == kTrayCallbackMessage) {
             const UINT action = LOWORD(message.lParam);
             if (action == WM_CONTEXTMENU) {
@@ -70,7 +72,7 @@ bool Application::Initialize() {
     Log(L"CEF hosting mode: windowless OSR with per-pixel alpha");
     if (!webview_.Initialize(overlay_.GetHandle(), config_.development, config_.frontendDevUrl,
         executableDirectory_ / L"ui", config_.enableDevTools, config_.apiOrigin,
-        [this](const std::wstring& type, bool value) { HandleWebCommand(type, value); },
+        [this](const std::wstring& type, bool value, const std::wstring& payload) { HandleWebCommand(type, value, payload); },
         [this](const std::wstring& message) { Log(message.c_str()); })) {
         Log(L"CEF initialization failed");
         return false;
@@ -91,14 +93,20 @@ void Application::Tick() {
         gameConnected_ = connected;
         Log(connected ? L"The Isle found" : L"The Isle lost");
         webview_.PostJson(connected ? L"{\"type\":\"game.connected\"}" : L"{\"type\":\"game.disconnected\"}");
-        if (!connected) SetMode(OverlayMode::Hud);
+        SetMode(connected ? OverlayMode::Hud : OverlayMode::Interactive);
     }
     if (!connected) {
-        webview_.SetVisible(false);
-        overlay_.Hide();
-        LogOverlayState(L"hide", L"game-not-found");
+        overlay_.SetLauncherMode(true);
+        overlay_.SetLauncherBounds();
+        overlay_.SetInteractive(true);
+        webview_.Resize();
+        webview_.SetVisible(true);
+        overlay_.Show();
+        LogOverlayState(L"show", L"launcher-ready");
         return;
     }
+
+    overlay_.SetLauncherMode(false);
 
     const HWND foregroundWindow = GetForegroundWindow();
     const bool overlayForeground = foregroundWindow == overlay_.GetHandle() ||
@@ -145,7 +153,7 @@ void Application::SetMode(OverlayMode mode) {
     if (mode == OverlayMode::Hud && tracker_.GetWindow()) SetForegroundWindow(tracker_.GetWindow());
 }
 
-void Application::HandleWebCommand(const std::wstring& type, bool value) {
+void Application::HandleWebCommand(const std::wstring& type, bool value, const std::wstring& payload) {
     if (type == L"overlay.closePanel") SetMode(OverlayMode::Hud);
     else if (type == L"overlay.setInteractive") SetMode(value ? OverlayMode::Interactive : OverlayMode::Hud);
     else if (type == L"overlay.openMap") {
@@ -153,6 +161,16 @@ void Application::HandleWebCommand(const std::wstring& type, bool value) {
         webview_.PostJson(L"{\"type\":\"overlay.openPanel\",\"panel\":\"minimap\"}");
     }
     else if (type == L"app.frontendReady") SendFrontendState();
+    else if (type == L"app.launchGame") {
+        static const std::wregex addressPattern(LR"(^[A-Za-z0-9.-]+:[0-9]{1,5}$)");
+        if (!std::regex_match(payload, addressPattern)) {
+            Log(L"launcher rejected invalid server address");
+            return;
+        }
+        const std::wstring uri = L"steam://run/376210//+connect%20" + payload;
+        const auto result = reinterpret_cast<std::intptr_t>(ShellExecuteW(nullptr, L"open", uri.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+        Log(result > 32 ? L"The Isle launch requested" : L"The Isle launch request failed");
+    }
     else if (type == L"app.exit") PostMessageW(overlay_.GetHandle(), WM_CLOSE, 0, 0);
 }
 

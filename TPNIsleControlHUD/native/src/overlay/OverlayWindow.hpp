@@ -6,6 +6,8 @@ public:
     bool Create(HINSTANCE instance);
     void Destroy();
     void SetBounds(const RECT& rect);
+    void SetLauncherBounds();
+    void SetLauncherMode(bool enabled);
     void Show();
     void Hide();
     void SetInteractive(bool enabled);

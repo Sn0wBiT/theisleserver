@@ -19,6 +19,7 @@ Sao chép `.env.example` thành `.env.local`, sau đó cấu hình:
 
 - `QUEST_API_URL`: địa chỉ dịch vụ bridge nhiệm vụ;
 - `QUEST_API_TOKEN`: token quản trị chỉ dùng ở phía máy chủ;
+- `ISLE_SERVER_IP` và `ISLE_SERVER_PORT`: địa chỉ server The Isle mà launcher sẽ kết nối trực tiếp;
 - `SESSION_SECRET`: khóa ký phiên đăng nhập web;
 - `DATABASE_URL`: chuỗi kết nối PostgreSQL;
 - `HUD_ACCESS_TOKEN_SECRET`: khóa riêng để ký access token của HUD;

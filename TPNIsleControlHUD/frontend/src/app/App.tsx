@@ -7,6 +7,7 @@ import { useOverlayStore } from "@/stores/overlay.store";
 import { AuthGate } from "@/features/auth/AuthGate";
 import { PositionStreamProvider, usePositionStream } from "@/features/minimap/usePositionStream";
 import { isUiDevelopment } from "@/config/ui-development";
+import { Launcher } from "@/features/launcher/Launcher";
 
 function AuthenticatedHud() {
   const { playerPresent, status } = usePositionStream();
@@ -27,6 +28,7 @@ export function App() {
   const interactive = useOverlayStore((state) => state.interactive);
   const runtimeReady = useOverlayStore((state) => state.runtimeReady);
   const runtimeError = useOverlayStore((state) => state.runtimeError);
+  const gameConnected = useOverlayStore((state) => state.gameProcessConnected);
   
   useEffect(bindNativeBridge, []);
 
@@ -51,9 +53,15 @@ export function App() {
           <section className="hud-panel border border-rust p-5 text-sm text-rust">{runtimeError}</section>
         </div>
       )}
-      {runtimeReady && (
-        isUiDevelopment ? hud : <AuthGate>{hud}</AuthGate>
+      {isUiDevelopment && (
+        <Launcher />
       )}
+      {!isUiDevelopment && (
+        <>
+          {runtimeReady && (gameConnected ? <AuthGate>{hud}</AuthGate> : <Launcher />)}
+        </>
+      )}
+      
       <NotificationLayer />
     </main>
   );

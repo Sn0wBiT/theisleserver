@@ -494,15 +494,15 @@ void WebViewHost::HandleMessage(const std::wstring& json) {
     if (hasType(L"app.frontendError")) {
         if (statusHandler_) statusHandler_(L"frontend error: " + json);
     } else if (hasType(L"overlay.closePanel")) {
-        if (commandHandler_) commandHandler_(L"overlay.closePanel", false);
+        if (commandHandler_) commandHandler_(L"overlay.closePanel", false, L"");
     } else if (hasType(L"overlay.setInteractive")) {
-        if (commandHandler_) commandHandler_(L"overlay.setInteractive", json.find(L"\"value\":true") != std::wstring::npos);
+        if (commandHandler_) commandHandler_(L"overlay.setInteractive", json.find(L"\"value\":true") != std::wstring::npos, L"");
     } else if (hasType(L"overlay.openMap")) {
-        if (commandHandler_) commandHandler_(L"overlay.openMap", false);
+        if (commandHandler_) commandHandler_(L"overlay.openMap", false, L"");
     } else if (hasType(L"app.getVersion")) {
         if (statusHandler_) statusHandler_(L"frontend bridge ready");
         PostJson(std::wstring(L"{\"type\":\"app.config\",\"apiUrl\":\"") + apiOrigin_ + L"\"}");
-        if (commandHandler_) commandHandler_(L"app.frontendReady", false);
+        if (commandHandler_) commandHandler_(L"app.frontendReady", false, L"");
     } else if (hasType(L"app.openLogin")) {
         const std::wregex codePattern(LR"regex("browserCode"\s*:\s*"([A-Za-z0-9_-]{32})")regex");
         const std::wregex productionOrigin(LR"(^https://[A-Za-z0-9.-]+(?::[0-9]+)?$)");
@@ -514,7 +514,12 @@ void WebViewHost::HandleMessage(const std::wstring& json) {
             const std::wstring url = apiOrigin_ + L"/hud/connect?code=" + match[1].str();
             ShellExecuteW(nullptr, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         }
+    } else if (hasType(L"app.launchGame")) {
+        const std::wregex addressPattern(LR"regex("serverAddress"\s*:\s*"([A-Za-z0-9.:-]+)")regex");
+        std::wsmatch match;
+        if (std::regex_search(json, match, addressPattern) && commandHandler_)
+            commandHandler_(L"app.launchGame", false, match[1].str());
     } else if (hasType(L"app.exit")) {
-        if (commandHandler_) commandHandler_(L"app.exit", false);
+        if (commandHandler_) commandHandler_(L"app.exit", false, L"");
     }
 }
