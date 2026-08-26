@@ -16,6 +16,7 @@ export type Faction = {
   color: string;
   leaderSteamId: string;
   role: "leader" | "member";
+  joinedAt?: string;
 };
 
 export function getTerritories() {
@@ -24,6 +25,19 @@ export function getTerritories() {
 
 export function getMyFaction() {
   return request<{ faction: Faction | null }>("/api/factions/me");
+}
+
+export function createFaction(name: string, color: string) {
+  return request<{ faction: Faction & { inviteCode: string } }>("/api/factions", {
+    method: "POST",
+    body: JSON.stringify({ name, color }),
+  });
+}
+
+export function rotateFactionInvite(factionId: string) {
+  return request<{ factionId: string; inviteCode: string }>(`/api/factions/${encodeURIComponent(factionId)}/invite`, {
+    method: "POST",
+  });
 }
 
 export function submitTerritoryActivity(zoneId: string, activityType: string, points: number, eventId: string) {

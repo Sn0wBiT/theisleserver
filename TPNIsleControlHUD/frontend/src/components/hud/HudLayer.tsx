@@ -1,4 +1,4 @@
-import { ClipboardList, MapIcon } from "lucide-react";
+import { ClipboardList, MapIcon, Users } from "lucide-react";
 import { CompactMinimap } from "@/features/minimap/CompactMinimap";
 import { cn } from "@/lib/utils";
 import { postNativeMessage } from "@/services/native-bridge";
@@ -21,15 +21,22 @@ export function HudLayer() {
     openPanel("minimap");
   }
 
+  const openGang = () => {
+    postNativeMessage({ type: "overlay.setInteractive", value: true });
+    setInteractive(true);
+    openPanel("gang");
+  };
+
   return (
     <div className="absolute inset-0 pointer-events-none">
       {/* Menus */}
       <div id="btn-list" className="relative z-100 left-4">
+        {/* Map */}
         <button
           type="button"
           className={cn(
             "pointer-events-auto top-4 flex hidden cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
-            expandedMinimapOpen ? "relative" : "absolute left-49",
+            expandedMinimapOpen ? "relative" : "absolute left-56 top-14",
           )}
           onClick={openMap}
           aria-label="Mở bản đồ"
@@ -40,11 +47,26 @@ export function HudLayer() {
             <span className="block text-[9px] uppercase tracking-[0.18em] text-ash">M - Bản đồ</span>
           </div>
         </button>
+        {/* Gang */}
         <button
           type="button"
           className={cn(
             "pointer-events-auto top-4 flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
-            expandedMinimapOpen ? "relative" : "absolute",
+            expandedMinimapOpen ? "relative" : "absolute left-50",
+          )}
+          onClick={openGang}
+          aria-label="Mở bảng bang hội"
+          disabled={interactive}
+        >
+          <Users className="size-4 text-moss" />
+          <div className="absolute -bottom-10 text-shadow-moss hidden"><span className="block text-[9px] uppercase tracking-[0.18em] text-ash">Bang hội</span></div>
+        </button>
+        {/* Quests */}
+        <button
+          type="button"
+          className={cn(
+            "pointer-events-auto top-4 flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
+            expandedMinimapOpen ? "relative" : "absolute left-56 top-14",
           )}
           onClick={openInteractive}
           aria-label="Mở bảng nhiệm vụ"
