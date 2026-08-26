@@ -27,9 +27,9 @@ const config = readJson(configPath);
 const quests = readJson(path.join(bridgeDir, "quests.json"));
 const aiDinosaurSpecies = new Set(readJson(path.join(bridgeDir, "ai-dinosaurs.json"))
   .map((species) => String(species).toLowerCase()));
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || config.DATABASE_URL;
 if (!connectionString) {
-  console.error("PostgreSQL storage requires DATABASE_URL. The bridge applies bridge/sql/001_initial.sql before startup.");
+  console.error("PostgreSQL storage requires DATABASE_URL in the environment or bridge/config.json. The bridge applies bridge/sql/001_initial.sql before startup.");
   process.exit(1);
 }
 let store;

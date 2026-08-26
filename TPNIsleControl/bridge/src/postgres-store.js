@@ -257,7 +257,11 @@ export class PostgresStore {
        ) INSERT INTO tpn_dinosaur_positions (steam_id, dinosaur_id, x, y, z, observed_at)
        SELECT steam, COALESCE(NULLIF(dinosaur_id, ''), 'legacy'), x, y, z, to_timestamp(updated_at / 1000.0) FROM payload
        ON CONFLICT (steam_id, dinosaur_id) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y, z = EXCLUDED.z, observed_at = EXCLUDED.observed_at, updated_at = now()`,
-      [JSON.stringify(rows)]
+      [JSON.stringify(rows.map((row) => ({
+        ...row,
+        dinosaur_id: row.dinosaurId,
+        updated_at: row.updatedAt
+      })))]
     );
   }
 
@@ -293,7 +297,12 @@ export class PostgresStore {
 
   upsertQuest(steam, questId, window, state, executor = this.pool) {
     return executor.query(
-      `INSERT INTO tpn_quest_progress
+      `WITH player AS (
+        INSERT INTO tpn_players (steam_id)
+        VALUES ($1)
+        ON CONFLICT (steam_id) DO NOTHING
+      )
+      INSERT INTO tpn_quest_progress
         (steam_id, quest_id, window_key, accepted, progress, completed, claimed)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (steam_id, quest_id, window_key) DO UPDATE SET

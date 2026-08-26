@@ -62,10 +62,8 @@ void OverlayWindow::SetBounds(const RECT& rect) {
 void OverlayWindow::SetLauncherBounds() {
     RECT workArea{};
     SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0);
-    constexpr LONG width = 760;
-    constexpr LONG height = 480;
-    SetWindowPos(hwnd_, HWND_TOPMOST, workArea.left + ((workArea.right - workArea.left) - width) / 2,
-                 workArea.top + ((workArea.bottom - workArea.top) - height) / 2, width, height,
+    SetWindowPos(hwnd_, HWND_TOPMOST, workArea.left, workArea.top,
+                 workArea.right - workArea.left, workArea.bottom - workArea.top,
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 void OverlayWindow::SetLauncherMode(bool enabled) {
@@ -118,7 +116,7 @@ LRESULT CALLBACK OverlayWindow::WindowProc(HWND hwnd, UINT message, WPARAM wPara
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
     }
     if (message == WM_ERASEBKGND) return 1;
-    if (message == WM_CLOSE) { DestroyWindow(hwnd); return 0; }
+    if (message == WM_CLOSE) { PostQuitMessage(0); return 0; }
     if (message == WM_DESTROY) { PostQuitMessage(0); return 0; }
     return DefWindowProcW(hwnd, message, wParam, lParam);
 }

@@ -74,7 +74,7 @@
 :root, html, body, #root { width: 100%; height: 100%; background: transparent !important; }
 * { box-sizing: border-box; user-select: none; }
 body { background: transparent !important; margin: 0; overflow: hidden; color: var(--color-bone); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
-button { font: inherit; }
+button { font: inherit; cursor: pointer; }
 
 .hud-panel { border-radius: var(--radius-isle); background: var(--color-bg-panel); }
 .hud-panel::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, rgb(140 220 195 / 0.025) 0, rgb(140 220 195 / 0.025) 1px, transparent 1px, transparent 3px); mix-blend-mode: screen; }

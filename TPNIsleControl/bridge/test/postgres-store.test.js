@@ -40,3 +40,26 @@ test("uses the compatibility dinosaur slot when no stable ID is supplied", async
   assert.equal(rows[0].dinosaur_id, undefined);
   assert.match(statement, /'legacy'/);
 });
+
+test("maps position timestamps to the database field name", async () => {
+  let rows;
+  const pool = {
+    query(sql, parameters) {
+      rows = JSON.parse(parameters[0]);
+      return Promise.resolve({ rows: [] });
+    }
+  };
+  const store = new PostgresStore(pool, 5000);
+
+  await store.upsertPositions([{
+    steam: "steam-1",
+    dinosaurId: "dino-a",
+    x: 1,
+    y: 2,
+    z: 3,
+    updatedAt: 1700000000000
+  }]);
+
+  assert.equal(rows[0].dinosaur_id, "dino-a");
+  assert.equal(rows[0].updated_at, 1700000000000);
+});

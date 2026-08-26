@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampPanelPosition, loadPanelPosition, QUEST_PANEL_POSITION_KEY, savePanelPosition } from "./panel-position";
+import { clampPanelPosition, loadPanelPosition, savePanelPosition } from "./panel-position";
 
 describe("quest panel placement", () => {
   it("restores a versioned position and ignores unusable data", () => {

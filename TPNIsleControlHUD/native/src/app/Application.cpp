@@ -93,6 +93,7 @@ void Application::Tick() {
         gameConnected_ = connected;
         Log(connected ? L"The Isle found" : L"The Isle lost");
         webview_.PostJson(connected ? L"{\"type\":\"game.connected\"}" : L"{\"type\":\"game.disconnected\"}");
+        if (connected && IsIconic(overlay_.GetHandle())) ShowWindow(overlay_.GetHandle(), SW_RESTORE);
         SetMode(connected ? OverlayMode::Hud : OverlayMode::Interactive);
     }
     if (!connected) {
@@ -123,7 +124,7 @@ void Application::Tick() {
         LogOverlayState(L"hide", L"game-window-hidden");
         return;
     }
-    if (tracker_.IsMinimized()) {
+    if ((tracker_.IsMinimized)()) {
         webview_.SetVisible(false);
         overlay_.Hide();
         LogOverlayState(L"hide", L"game-window-minimized");
@@ -171,6 +172,7 @@ void Application::HandleWebCommand(const std::wstring& type, bool value, const s
         const auto result = reinterpret_cast<std::intptr_t>(ShellExecuteW(nullptr, L"open", uri.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
         Log(result > 32 ? L"The Isle launch requested" : L"The Isle launch request failed");
     }
+    else if (type == L"app.minimize") ShowWindow(overlay_.GetHandle(), SW_MINIMIZE);
     else if (type == L"app.exit") PostMessageW(overlay_.GetHandle(), WM_CLOSE, 0, 0);
 }
 
@@ -270,7 +272,7 @@ void Application::LogOverlayState(const wchar_t* action, const wchar_t* reason) 
            << L" foregroundHwnd=" << handle(GetForegroundWindow())
            << L" overlayHwnd=" << handle(overlay)
            << L" gameVisible=" << (tracker_.IsVisible() ? 1 : 0)
-           << L" gameMinimized=" << (tracker_.IsMinimized() ? 1 : 0)
+           << L" gameMinimized=" << ((tracker_.IsMinimized)() ? 1 : 0)
            << L" gameForeground=" << (tracker_.IsForeground() ? 1 : 0)
            << L" overlayVisible=" << (IsWindowVisible(overlay) ? 1 : 0)
            << L" overlayEnabled=" << (IsWindowEnabled(overlay) ? 1 : 0)

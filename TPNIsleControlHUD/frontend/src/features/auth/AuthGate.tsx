@@ -7,7 +7,7 @@ import { openLogin } from "@/services/native-bridge";
 type State = "restoring" | "signedOut" | "starting" | "waiting" | "authenticated" | "error";
 type Start = { deviceCode: string; browserCode: string; expiresIn: number; pollInterval: number };
 
-export function AuthGate({ children }: { children: React.ReactNode }) {
+export function AuthGate({ children, embedded = false }: { children: React.ReactNode; embedded?: boolean }) {
   const [state, setState] = useState<State>("restoring");
   const [player, setPlayer] = useState<Player | null>(null);
   const [message, setMessage] = useState("");
@@ -58,6 +58,31 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     await queryClient.clear();
   }
 
-  if (state === "authenticated") return <><div className="absolute right-6 top-20 z-[900] flex items-center gap-2 text-[10px] text-bone">{player?.avatarUrl && <img className="size-6 rounded-full" src={player.avatarUrl} alt="" />}<span>{player?.displayName}</span><button onClick={logout}>Sign out</button></div>{children}</>;
-  return <div className="absolute inset-0 z-[1000] grid place-items-center"><section className="hud-panel relative w-80 border border-stone p-6 text-center shadow-hud"><p className="eyebrow">Steam account</p><h1 className="my-3 text-xl text-bone">{state === "waiting" ? "Finish signing in in your browser" : "Connect your HUD"}</h1>{message && <p className="mb-3 text-xs text-rust">{message}</p>}{state === "restoring" && <p className="text-xs text-ash">Restoring your session…</p>}{state === "waiting" ? <button className="text-xs text-ash underline" onClick={cancel}>Cancel</button> : state !== "restoring" && <button className="border border-stone px-4 py-2 text-xs text-bone" disabled={state === "starting"} onClick={login}>{state === "starting" ? "Starting…" : "Sign in with Steam"}</button>}</section></div>;
+  if (state === "authenticated") {
+    return (
+      <>
+        <div className={embedded ? "mb-4 flex items-center justify-end gap-2 text-[10px] text-bone" : "absolute right-6 top-20 z-[900] flex items-center gap-2 text-[10px] text-bone"}>
+          {player?.avatarUrl && <img className="size-6 rounded-full" src={player.avatarUrl} alt="" />}
+          <span>{player?.displayName}</span>
+          <button onClick={logout}>Sign out</button>
+        </div>
+        {children}
+      </>
+    )
+  }
+  return (
+    <div className={embedded ? "grid place-items-center p-8" : "absolute inset-0 z-[1000] grid place-items-center"}>
+      <section className="hud-panel relative w-full max-w-80 border border-stone p-6 text-center shadow-hud">
+        <p className="eyebrow">Tài khoản Steam</p>
+        <h1 className="my-3 text-xl text-bone">{state === "waiting" ? "Hoàn tất đăng nhập trong trình duyệt" : "Kết nối HUD"}</h1>
+        {message && <p className="mb-3 text-xs text-rust">{message}</p>}
+        {state === "restoring" && (
+          <p className="text-xs text-ash">Đang khôi phục phiên đăng nhập…</p>
+        )}
+        {state === "waiting" ? (
+          <button className="text-xs text-ash underline" onClick={cancel}>Hủy</button>
+        ) : state !== "restoring" && <button className="border border-stone px-4 py-2 text-xs text-bone" disabled={state === "starting"} onClick={login}>{state === "starting" ? "Đang bắt đầu…" : "Đăng nhập với Steam"}</button>}
+      </section>
+    </div>
+  )
 }

@@ -519,6 +519,8 @@ void WebViewHost::HandleMessage(const std::wstring& json) {
         std::wsmatch match;
         if (std::regex_search(json, match, addressPattern) && commandHandler_)
             commandHandler_(L"app.launchGame", false, match[1].str());
+    } else if (hasType(L"app.minimize")) {
+        if (commandHandler_) commandHandler_(L"app.minimize", false, L"");
     } else if (hasType(L"app.exit")) {
         if (commandHandler_) commandHandler_(L"app.exit", false, L"");
     }

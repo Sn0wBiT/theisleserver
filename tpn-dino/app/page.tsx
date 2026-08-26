@@ -20,7 +20,7 @@ function Login() {
         <p className="fine-print">Chúng tôi chỉ dùng Steam ID công khai để đối chiếu tiến độ trong trò chơi của bạn.</p>
       </section>
       <aside className="login-art" aria-hidden="true">
-        <Image src={`/images/the-isle-art.jpeg`} fill alt="TPN Dino Việt Nam" />
+        <Image src={`/images/bg.jpg`} fill alt="TPN Dino Việt Nam" />
       </aside>
     </main>
   );
