@@ -68,9 +68,20 @@ export function MinimapMap({ calibration, position, compact = false, follow, rec
     if (!showTerritories) return;
     for (const zone of territories) {
       const polygon = territoryPolygon(zone, calibration).map((point) => imagePointToLeaflet(point, calibration.image.height) as [number, number]);
-      L.polygon(polygon, { color: territoryColor(zone), weight: zone.status === "contested" ? 3 : 1, opacity: 0.3, fillOpacity: Math.min(0.2, 0.12 + zone.influence / 500) })
+      const neutral = zone.status === "neutral";
+      const baseStyle = {
+        color: territoryColor(zone),
+        weight: zone.status === "contested" ? 3 : 1,
+        opacity: neutral ? 0 : 0.3,
+        fillOpacity: neutral ? 0 : Math.min(0.2, 0.12 + zone.influence / 500),
+      };
+      const territoryLayer = L.polygon(polygon, baseStyle)
         .bindTooltip(`${zone.name} · ${zone.status}`)
         .addTo(layer);
+      if (neutral) {
+        territoryLayer.on("mouseover", () => territoryLayer.setStyle({ weight: 2, opacity: 0.55, fillOpacity: 0.18 }));
+        territoryLayer.on("mouseout", () => territoryLayer.setStyle(baseStyle));
+      }
     }
   }, [calibration, showTerritories, territories]);
 
