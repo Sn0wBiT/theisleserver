@@ -22,7 +22,7 @@ export function territoryColor(zone: Territory) {
   return "#64748b";
 }
 
-export function mockTerritories(calibration: Calibration, size = 150_000): Territory[] {
+export function mockTerritories(calibration: Calibration, size = 50000): Territory[] {
   const { minX, maxX, minY, maxY } = calibration.worldBounds;
   const width = Math.sqrt(3) * size;
   const rowHeight = size * 1.5;
