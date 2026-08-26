@@ -12,9 +12,10 @@ type Props = {
   follow: boolean;
   recenterKey?: number;
   onFollowChange?: (follow: boolean) => void;
+  showTerritories?: boolean;
 };
 
-export function MinimapMap({ calibration, position, compact = false, follow, recenterKey, onFollowChange }: Props) {
+export function MinimapMap({ calibration, position, compact = false, follow, recenterKey, onFollowChange, showTerritories = true }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -64,13 +65,14 @@ export function MinimapMap({ calibration, position, compact = false, follow, rec
     const layer = territoryLayerRef.current;
     if (!layer) return;
     layer.clearLayers();
+    if (!showTerritories) return;
     for (const zone of territories) {
       const polygon = territoryPolygon(zone, calibration).map((point) => imagePointToLeaflet(point, calibration.image.height) as [number, number]);
-      L.polygon(polygon, { color: territoryColor(zone), weight: zone.status === "contested" ? 3 : 1, opacity: 0.05, fillOpacity: Math.min(0.55, 0.12 + zone.influence / 500) })
+      L.polygon(polygon, { color: territoryColor(zone), weight: zone.status === "contested" ? 3 : 1, opacity: 0.3, fillOpacity: Math.min(0.2, 0.12 + zone.influence / 500) })
         .bindTooltip(`${zone.name} · ${zone.status}`)
         .addTo(layer);
     }
-  }, [calibration, territories]);
+  }, [calibration, showTerritories, territories]);
 
   useEffect(() => {
     const map = mapRef.current;
