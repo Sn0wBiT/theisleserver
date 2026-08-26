@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
       { source: "/api/hud-auth/:path*", headers: corsHeaders },
     ];
   },
+  allowedDevOrigins: ['113.172.117.131'],
 };
 
 export default nextConfig;

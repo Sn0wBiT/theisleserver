@@ -23,6 +23,7 @@ Sao chép `.env.example` thành `.env.local`, sau đó cấu hình:
 - `DATABASE_URL`: chuỗi kết nối PostgreSQL;
 - `HUD_ACCESS_TOKEN_SECRET`: khóa riêng để ký access token của HUD;
 - `STEAM_WEB_API_KEY`: khóa Steam Web API để bổ sung thông tin hồ sơ công khai;
+- `PUBLIC_ORIGIN`: origin công khai của ứng dụng dùng cho Steam OpenID, ví dụ `http://113.172.117.131:3000`;
 - `HUD_ORIGIN`: origin CORS của HUD nhúng, mặc định `http://dino.tpnrp.local`.
 
 Không đưa `QUEST_API_TOKEN`, khóa ký hoặc thông tin kết nối cơ sở dữ liệu vào mã frontend.
