@@ -1,7 +1,9 @@
 import "server-only";
 
 export function appOrigin(request: Request) {
-  const configuredOrigin = process.env.PUBLIC_APP_URL?.trim() || process.env.HUD_ORIGIN?.trim();
+  const configuredOrigin = process.env.PUBLIC_APP_URL?.trim()
+    || process.env.PUBLIC_ORIGIN?.trim()
+    || process.env.HUD_ORIGIN?.trim();
   if (configuredOrigin) return new URL(configuredOrigin).origin;
 
   const requestUrl = new URL(request.url);

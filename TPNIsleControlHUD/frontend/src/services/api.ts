@@ -2,7 +2,7 @@ import { getAccessToken, sharedRefresh, type AuthResult } from "@/services/auth"
 
 export type ApiError = Error & { status: number; code?: string };
 
-export let apiUrl = "http://localhost:3000";
+export let apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
 export function validateApiUrl(value: string) {
   const url = new URL(value);
   if (url.pathname !== "/" || url.search || url.hash || (url.protocol !== "https:" && url.protocol !== "http:")) {

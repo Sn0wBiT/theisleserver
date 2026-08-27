@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { clearSession, getRefreshToken, sharedRefresh, storeSession, type AuthResult, type Player } from "@/services/auth";
 import { rawRequest } from "@/services/api";
 import { openLogin } from "@/services/native-bridge";
+import { cn } from "@/lib/utils";
 
 type State = "restoring" | "signedOut" | "starting" | "waiting" | "authenticated" | "error";
 type Start = { deviceCode: string; browserCode: string; expiresIn: number; pollInterval: number };
@@ -61,7 +62,7 @@ export function AuthGate({ children, embedded = false }: { children: React.React
   if (state === "authenticated") {
     return (
       <>
-        <div className={embedded ? "mb-4 flex items-center justify-end gap-2 text-[10px] text-bone" : "absolute right-6 top-20 z-[900] flex items-center gap-2 text-[10px] text-bone"}>
+        <div style={{ display: 'none !important'}} className={cn("hidden", embedded ? "mb-4 flex items-center justify-end gap-2 text-[10px] text-bone" : "absolute right-6 top-20 z-[900] flex items-center gap-2 text-[10px] text-bone")}>
           {player?.avatarUrl && <img className="size-6 rounded-full" src={player.avatarUrl} alt="" />}
           <span>{player?.displayName}</span>
           <button onClick={logout}>Sign out</button>

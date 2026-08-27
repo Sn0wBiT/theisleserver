@@ -57,7 +57,7 @@ export function DinoStatusHud({ status = defaultDinoStatus, mode = "compact" }: 
   const display = (value: number | null) => value === null ? "—" : `${value}%`;
 
   return (
-    <section className={cn(`dino-status dino-status--${mode} [clip-path:polygon(0_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%)]`)} aria-label="Current dinosaur status">
+    <section className={cn(`dino-status dino-status--${mode}`)} aria-label="Current dinosaur status">
       <header className="dino-status__header">
         <div>
           <p className="eyebrow">Current specimen</p>
