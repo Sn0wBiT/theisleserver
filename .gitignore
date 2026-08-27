@@ -16,3 +16,4 @@ TheIsle/Binaries/Win64/*
 !TheIsle/Binaries/Win64/ue4ss/
 !TheIsle/Binaries/Win64/ue4ss/**
 /TheIsle/Binaries/Win64/ue4ss/*.log
+tpn-dino/public/hud/**

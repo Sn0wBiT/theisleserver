@@ -50,7 +50,9 @@ cd ..
 cmake --install build --config Release --prefix release
 ```
 
-The result contains `TPNIsleControlHUD.exe` and the production frontend under `ui/`. The build script performs locked dependency installation, frontend tests/build, native configure/build, and installation in order. Packaging fails if `dist/index.html` or generated assets are absent. Review the compiled `apiOrigin` before distribution; the source default is intentionally non-functional.
+The result contains `TPNIsleControlHUD.exe`, `TPNIsleControlHUDUpdater.exe`, `manifest.json`, and the production frontend under `ui/`. The build script performs locked dependency installation, frontend tests/build, native configure/build, installation, SHA-256 manifest generation, and publishing in order. It copies the complete release to `tpn-dino/public/hud/release/` and publishes the authoritative metadata as `tpn-dino/public/hud/manifest.json`. Packaging fails if `dist/index.html` or generated assets are absent. Review the compiled `apiOrigin` before distribution; the source default is intentionally non-functional.
+
+On every launch, the HUD hands off to a temporary updater process before CEF starts. The updater requires the server manifest, compares the installed and published versions, verifies every installed release file, downloads only missing or mismatched files, verifies each download, replaces the installation, and restarts the HUD. If the manifest or any resource cannot be downloaded or verified, startup remains blocked. The current release version is `0.1.1`.
 
 ## Controls
 

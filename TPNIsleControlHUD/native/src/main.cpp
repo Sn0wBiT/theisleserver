@@ -3,6 +3,7 @@
 
 #include "include/cef_app.h"
 #include <windows.h>
+#include <shellapi.h>
 #include <objbase.h>
 #include <filesystem>
 
@@ -24,6 +25,39 @@ std::filesystem::path CefDataDirectory() {
     }
     return ExecutableDirectory() / L"cef-data";
 }
+
+bool HasArgument(const wchar_t* expected) {
+    int count = 0;
+    wchar_t** arguments = CommandLineToArgvW(GetCommandLineW(), &count);
+    if (!arguments) return false;
+    bool found = false;
+    for (int index = 1; index < count; ++index) {
+        if (wcscmp(arguments[index], expected) == 0) { found = true; break; }
+    }
+    LocalFree(arguments);
+    return found;
+}
+
+bool LaunchUpdater() {
+    const auto installDirectory = ExecutableDirectory();
+    const auto updater = installDirectory / L"TPNIsleControlHUDUpdater.exe";
+    wchar_t tempPath[MAX_PATH]{};
+    if (!GetTempPathW(MAX_PATH, tempPath)) return false;
+    const auto runnerDirectory = std::filesystem::path(tempPath) / L"TPNIsleControlHUD";
+    std::error_code error;
+    std::filesystem::create_directories(runnerDirectory, error);
+    if (error) return false;
+    const auto runner = runnerDirectory / (L"updater-" + std::to_wstring(GetCurrentProcessId()) + L".exe");
+    if (!CopyFileW(updater.c_str(), runner.c_str(), FALSE)) return false;
+    std::wstring command = L"\"" + runner.wstring() + L"\" --install-dir \"" + installDirectory.wstring() +
+                           L"\" --origin \"" + Config{}.apiOrigin + L"\" --pid " + std::to_wstring(GetCurrentProcessId());
+    STARTUPINFOW startup{sizeof(startup)};
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup, &process)) return false;
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    return true;
+}
 }
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
@@ -33,6 +67,12 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     CefRefPtr<CefApp> cefApplication = CreateHudCefApplication();
     const int subprocessResult = CefExecuteProcess(mainArguments, cefApplication, nullptr);
     if (subprocessResult >= 0) return subprocessResult;
+
+    if (!HasArgument(L"--skip-update")) {
+        if (!LaunchUpdater()) MessageBoxW(nullptr, L"Không thể chạy HUD updater.",
+                                         L"TPN Isle Control HUD", MB_OK | MB_ICONERROR);
+        return 0;
+    }
 
     const auto cefData = CefDataDirectory();
     std::error_code directoryError;

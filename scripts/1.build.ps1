@@ -6,6 +6,7 @@ $frontendRoot = Join-Path $hudRoot "frontend"
 $buildRoot = Join-Path $hudRoot "build"
 $releaseRoot = Join-Path $hudRoot "release"
 $configPath = Join-Path $hudRoot "native\src\config\Config.hpp"
+$dinoPublicRoot = Join-Path $projectRoot "tpn-dino\public"
 
 function ConvertFrom-CppString {
     param([string]$Value)
@@ -98,6 +99,48 @@ function Update-NativeConfig {
     Write-Host "Updated compiled native configuration: $configPath"
 }
 
+function Publish-HudRelease {
+    $resolvedReleaseRoot = (Resolve-Path $releaseRoot).Path.TrimEnd('\')
+    $files = Get-ChildItem -Path $resolvedReleaseRoot -File -Recurse |
+        Where-Object { $_.Name -ne "manifest.json" -and $_.Name -ne "TPNIsleControlHUD.log" } |
+        ForEach-Object {
+            $relative = $_.FullName.Substring($resolvedReleaseRoot.Length + 1).Replace('\', '/')
+            [pscustomobject]@{ Path = $relative; Hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant() }
+        } | Sort-Object Path
+    $canonical = ($files | ForEach-Object { "$($_.Path):$($_.Hash)" }) -join "`n"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($canonical)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = [System.BitConverter]::ToString($sha256.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+    $hudVersion = (Get-Content (Join-Path $frontendRoot "package.json") -Raw | ConvertFrom-Json).version
+    $metadata = [ordered]@{
+        version = $hudVersion
+        algorithm = "sha256"
+        hash = $hash
+        files = [ordered]@{}
+    }
+    foreach ($file in $files) { $metadata.files[$file.Path] = $file.Hash }
+    $json = $metadata | ConvertTo-Json -Depth 5
+    $localMetadata = Join-Path $releaseRoot "manifest.json"
+    $serverHudRoot = Join-Path $dinoPublicRoot "hud"
+    $serverReleaseRoot = Join-Path $serverHudRoot "release"
+    if (Test-Path $serverReleaseRoot) { Remove-Item -Path $serverReleaseRoot -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path $serverReleaseRoot | Out-Null
+    Copy-Item -Path (Join-Path $releaseRoot "*") -Destination $serverReleaseRoot -Recurse -Force
+    $serverMetadata = Join-Path $serverHudRoot "manifest.json"
+    [System.IO.File]::WriteAllText($localMetadata, $json + "`n", [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText($serverMetadata, $json + "`n", [System.Text.UTF8Encoding]::new($false))
+    $serverDownloadsRoot = Join-Path $serverHudRoot "downloads"
+    $downloadArchive = Join-Path $serverDownloadsRoot "TPNIsleControlHUD.zip"
+    New-Item -ItemType Directory -Force -Path $serverDownloadsRoot | Out-Null
+    if (Test-Path $downloadArchive) { Remove-Item -Path $downloadArchive -Force }
+    Compress-Archive -Path (Join-Path $releaseRoot "*") -DestinationPath $downloadArchive -CompressionLevel Optimal
+    Write-Host "Published HUD release $($metadata.version) with manifest hash $hash"
+}
+
 $cmakeCommand = Get-Command cmake -ErrorAction SilentlyContinue
 if ($cmakeCommand) {
     $cmake = $cmakeCommand.Source
@@ -140,7 +183,11 @@ Write-Host "Building Release configuration..."
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "Installing release to $releaseRoot..."
+if (Test-Path $releaseRoot) { Remove-Item -Path $releaseRoot -Recurse -Force }
 & $cmake --install $buildRoot --config Release --prefix $releaseRoot
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "Generating release manifest and publishing files to tpn-dino..."
+Publish-HudRelease
 
 Write-Host "Build complete: $releaseRoot"

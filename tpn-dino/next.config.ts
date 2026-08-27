@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  experimental: {
+    useTypeScriptCli: false,
+  },
   async headers() {
     const corsHeaders = [
         { key: "Access-Control-Allow-Origin", value: "*" },

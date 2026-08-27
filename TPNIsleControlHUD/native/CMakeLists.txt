@@ -34,6 +34,11 @@ add_executable(TPNIsleControlHUD WIN32
   src/overlay/OverlayWindow.cpp
   src/webview/WebViewHost.cpp)
 
+add_executable(TPNIsleControlHUDUpdater WIN32 src/updater/Updater.cpp)
+target_compile_features(TPNIsleControlHUDUpdater PRIVATE cxx_std_20)
+target_compile_definitions(TPNIsleControlHUDUpdater PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+target_link_libraries(TPNIsleControlHUDUpdater PRIVATE winhttp bcrypt shell32 comctl32)
+
 target_compile_features(TPNIsleControlHUD PRIVATE cxx_std_20)
 target_compile_definitions(TPNIsleControlHUD PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
 target_include_directories(TPNIsleControlHUD PRIVATE
@@ -51,9 +56,10 @@ COPY_FILES(TPNIsleControlHUD "${CEF_RESOURCE_FILES}" "${CEF_RESOURCE_DIR}" "$<TA
 
 if(MSVC)
   target_compile_options(TPNIsleControlHUD PRIVATE /W4 /permissive- /EHsc)
+  target_compile_options(TPNIsleControlHUDUpdater PRIVATE /W4 /permissive- /EHsc)
 endif()
 
-install(TARGETS TPNIsleControlHUD RUNTIME DESTINATION .)
+install(TARGETS TPNIsleControlHUD TPNIsleControlHUDUpdater RUNTIME DESTINATION .)
 foreach(CEF_BINARY_FILE IN LISTS CEF_BINARY_FILES)
   install(FILES "${CEF_BINARY_DIR_RELEASE}/${CEF_BINARY_FILE}" DESTINATION .)
 endforeach()
