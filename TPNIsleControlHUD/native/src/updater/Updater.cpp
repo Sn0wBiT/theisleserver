@@ -22,21 +22,46 @@ public:
         INITCOMMONCONTROLSEX controls{sizeof(controls), ICC_PROGRESS_CLASS};
         InitCommonControlsEx(&controls);
         window_ = CreateWindowExW(WS_EX_TOPMOST, L"STATIC", L"TPN Isle Control HUD Update",
-            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, CW_USEDEFAULT, CW_USEDEFAULT, 520, 150,
+            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, CW_USEDEFAULT, CW_USEDEFAULT, 520, 180,
             nullptr, nullptr, instance, nullptr);
         label_ = CreateWindowW(L"STATIC", L"Đang kiểm tra cập nhật...", WS_CHILD | WS_VISIBLE,
             20, 20, 470, 24, window_, nullptr, instance, nullptr);
+        filename_ = CreateWindowW(L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_PATHELLIPSIS,
+            20, 48, 470, 24, window_, nullptr, instance, nullptr);
         progress_ = CreateWindowW(PROGRESS_CLASSW, nullptr, WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
-            20, 58, 470, 22, window_, nullptr, instance, nullptr);
+            20, 80, 470, 22, window_, nullptr, instance, nullptr);
+        font_ = CreateFontW(-16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, VIETNAMESE_CHARSET,
+            OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        if (font_) {
+            SendMessageW(label_, WM_SETFONT, reinterpret_cast<WPARAM>(font_), TRUE);
+            SendMessageW(filename_, WM_SETFONT, reinterpret_cast<WPARAM>(font_), TRUE);
+        }
         SendMessageW(progress_, PBM_SETRANGE32, 0, 100);
+        RECT workArea{};
+        RECT windowBounds{};
+        if (SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0) && GetWindowRect(window_, &windowBounds)) {
+            const int width = windowBounds.right - windowBounds.left;
+            const int height = windowBounds.bottom - windowBounds.top;
+            const int x = workArea.left + ((workArea.right - workArea.left) - width) / 2;
+            const int y = workArea.top + ((workArea.bottom - workArea.top) - height) / 2;
+            SetWindowPos(window_, nullptr, x, y, 0, 0, SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSIZE);
+        }
         ShowWindow(window_, SW_SHOW);
         UpdateWindow(window_);
     }
 
-    void Set(const std::wstring& text, size_t completed, size_t total) {
+    ~StatusWindow() {
+        if (window_) DestroyWindow(window_);
+        if (font_) DeleteObject(font_);
+    }
+
+    void Set(const std::wstring& text, const std::wstring& filename, size_t completed, size_t total) {
         SetWindowTextW(label_, text.c_str());
-        const int percent = total == 0 ? 0 : static_cast<int>((completed * 100) / total);
+        SetWindowTextW(filename_, filename.c_str());
+        const int percent = total == 0 ? 0 : static_cast<int>((std::min(completed, total) * 100) / total);
         SendMessageW(progress_, PBM_SETPOS, percent, 0);
+        RedrawWindow(window_, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
         MSG message{};
         while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
             TranslateMessage(&message);
@@ -47,7 +72,9 @@ public:
 private:
     HWND window_{};
     HWND label_{};
+    HWND filename_{};
     HWND progress_{};
+    HFONT font_{};
 };
 
 std::wstring Utf8ToWide(const std::string& value) {
@@ -173,7 +200,6 @@ bool ParseManifest(const std::vector<unsigned char>& bytes, Manifest& manifest) 
         manifest.files.push_back({path, Utf8ToWide((*match)[2].str())});
         canonicalEntries.push_back((*match)[1].str() + ":" + (*match)[2].str());
     }
-    std::sort(canonicalEntries.begin(), canonicalEntries.end());
     std::string canonical;
     for (size_t index = 0; index < canonicalEntries.size(); ++index) {
         if (index > 0) canonical.push_back('\n');
@@ -222,11 +248,12 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
 
     StatusWindow status(instance);
-    status.Set(L"Đang kiểm tra manifest...", 0, 1);
+    status.Set(L"Đang kiểm tra manifest...", L"manifest.json", 0, 1);
     std::vector<unsigned char> manifestBytes;
     if (!HttpGet(origin + L"/hud/manifest.json", manifestBytes)) { Fail(L"Không thể tải manifest.json. Vui lòng thử lại sau!"); return 1; }
     Manifest remote;
     if (!ParseManifest(manifestBytes, remote)) { Fail(L"Dữ liệu manifest không hợp lệ. Vui lòng thử lại sau!"); return 1; }
+    status.Set(L"Đã kiểm tra manifest.", L"manifest.json", 1, 1);
 
     Manifest local;
     std::vector<unsigned char> localBytes;
@@ -239,8 +266,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     std::vector<ManifestFile> changed;
     for (size_t index = 0; index < remote.files.size(); ++index) {
         const auto& file = remote.files[index];
-        status.Set(L"Đang xác minh " + file.path, index, remote.files.size());
+        status.Set(L"Đang xác minh tệp...", file.path, index, remote.files.size());
         if (HashFile(installDirectory / file.path) != file.hash) changed.push_back(file);
+        status.Set(L"Đang xác minh tệp...", file.path, index + 1, remote.files.size());
     }
 
     if (!hasLocalManifest || local.version != remote.version || !changed.empty()) {
@@ -249,20 +277,22 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         std::filesystem::remove_all(staging, error);
         for (size_t index = 0; index < changed.size(); ++index) {
             const auto& file = changed[index];
-            status.Set(L"Đang tải xuống " + file.path, index, changed.size());
+            status.Set(L"Đang tải xuống tệp...", file.path, index, changed.size());
             std::wstring urlPath = file.path;
             std::replace(urlPath.begin(), urlPath.end(), L'\\', L'/');
             std::vector<unsigned char> bytes;
             if (!HttpGet(origin + L"/hud/release/" + urlPath, bytes) || Sha256(bytes.data(), bytes.size()) != file.hash ||
                 !WriteBytes(staging / file.path, bytes)) { Fail(L"Failed to download or verify " + file.path + L"."); return 1; }
+            status.Set(L"Đang tải xuống tệp...", file.path, index + 1, changed.size());
         }
         for (size_t index = 0; index < changed.size(); ++index) {
             const auto& file = changed[index];
-            status.Set(L"Installing " + file.path, index, changed.size());
+            status.Set(L"Đang cài đặt tệp...", file.path, index, changed.size());
             std::filesystem::create_directories((installDirectory / file.path).parent_path(), error);
             if (!CopyFileW((staging / file.path).c_str(), (installDirectory / file.path).c_str(), FALSE)) {
                 Fail(L"Failed to install " + file.path + L"."); return 1;
             }
+            status.Set(L"Đang cài đặt tệp...", file.path, index + 1, changed.size());
         }
         if (hasLocalManifest) {
             for (const auto& oldFile : local.files) {
@@ -276,7 +306,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         std::filesystem::remove_all(staging, error);
     }
 
-    status.Set(L"Release verified. Starting HUD...", 1, 1);
+    status.Set(L"Đã xác minh bản phát hành. Đang khởi động HUD...", L"", 1, 1);
     if (!LaunchHud(installDirectory)) { Fail(L"The updated HUD could not be started."); return 1; }
     return 0;
 }
