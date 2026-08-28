@@ -24,7 +24,7 @@ export async function request<T>(path: string, options: RequestInit = {}, retry 
   try {
     response = await fetch(`${baseUrl}${path}`, { ...options, headers, credentials: "include" });
   } catch (cause) {
-    const error = new Error("Không thể kết nối đến dịch vụ nhiệm vụ", { cause }) as ApiError;
+    const error = new Error("Không thể kết nối đến máy chủ", { cause }) as ApiError;
     error.status = 0;
     throw error;
   }
@@ -54,7 +54,7 @@ export async function rawRequest<T>(path: string, options: RequestInit = {}): Pr
   try {
     response = await fetch(`${apiUrl}${path}`, { ...options, headers: { Accept: "application/json", "Content-Type": "application/json", ...options.headers } });
   } catch (cause) {
-    const error = new Error("Không thể kết nối đến dịch vụ", { cause }) as ApiError;
+    const error = new Error("Không thể kết nối đến máy chủ", { cause }) as ApiError;
     error.status = 0;
     throw error;
   }
@@ -72,6 +72,14 @@ export function readableError(code: string | undefined, status: number) {
     "not-accepted": "Hãy nhận nhiệm vụ trong trò chơi trước khi nhận thưởng",
     "growth-requirement-not-met": "Mức tăng trưởng hiện tại chưa đủ để nhận nhiệm vụ này",
     "already-accepted": "Nhiệm vụ này đã được nhận",
+    "invalid-invite-code": "Mã mời không hợp lệ",
+    "already-in-faction": "Bạn đã thuộc một bầy đàn",
+    "active-request-exists": "Bạn đã có một yêu cầu tham gia chưa được giải quyết",
+    forbidden: "Bạn không có quyền thực hiện thao tác này",
+    "request-not-pending": "Yêu cầu này không còn ở trạng thái chờ",
+    "request-not-found": "Không tìm thấy yêu cầu tham gia",
+    "invalid-faction-id": "Bầy đàn không hợp lệ",
+    "invalid-request-id": "Yêu cầu tham gia không hợp lệ",
   };
   return (code && messages[code]) ?? `Dịch vụ nhiệm vụ phản hồi mã lỗi ${status}`;
 }

@@ -1,16 +1,17 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { clearSession, getRefreshToken, sharedRefresh, storeSession, type AuthResult, type Player } from "@/services/auth";
+import { getRefreshToken, sharedRefresh, storeSession, type AuthResult, type Player } from "@/services/auth";
 import { rawRequest } from "@/services/api";
 import { openLogin } from "@/services/native-bridge";
-import { cn } from "@/lib/utils";
+
 
 type State = "restoring" | "signedOut" | "starting" | "waiting" | "authenticated" | "error";
 type Start = { deviceCode: string; browserCode: string; expiresIn: number; pollInterval: number };
 
 export function AuthGate({ children, embedded = false }: { children: React.ReactNode; embedded?: boolean }) {
   const [state, setState] = useState<State>("restoring");
-  const [player, setPlayer] = useState<Player | null>(null);
+  const [_, setPlayer] = useState<Player | null>(null);
   const [message, setMessage] = useState("");
   const active = useRef<{ cancelled: boolean; deviceCode?: string }>({ cancelled: false });
   const queryClient = useQueryClient();
@@ -53,20 +54,10 @@ export function AuthGate({ children, embedded = false }: { children: React.React
     if (deviceCode) await rawRequest("/api/hud-auth/cancel", { method: "POST", body: JSON.stringify({ deviceCode }) }).catch(() => undefined);
     setState("signedOut");
   }
-  async function logout() {
-    const refreshToken = getRefreshToken(); clearSession(); setPlayer(null); setState("signedOut");
-    if (refreshToken) await rawRequest("/api/hud-auth/logout", { method: "POST", body: JSON.stringify({ refreshToken }) }).catch(() => undefined);
-    await queryClient.clear();
-  }
 
   if (state === "authenticated") {
     return (
       <>
-        <div style={{ display: 'none !important'}} className={cn("hidden", embedded ? "mb-4 flex items-center justify-end gap-2 text-[10px] text-bone" : "absolute right-6 top-20 z-[900] flex items-center gap-2 text-[10px] text-bone")}>
-          {player?.avatarUrl && <img className="size-6 rounded-full" src={player.avatarUrl} alt="" />}
-          <span>{player?.displayName}</span>
-          <button onClick={logout}>Sign out</button>
-        </div>
         {children}
       </>
     )

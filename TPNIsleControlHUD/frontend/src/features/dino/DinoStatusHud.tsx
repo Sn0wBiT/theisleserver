@@ -33,7 +33,7 @@ type StatusBarProps = {
 };
 
 function StatusBar({ label, value, displayValue, icon: Icon, tone }: StatusBarProps) {
-  const safeValue = value === null ? 0 : Math.max(0, Math.min(value, 100));
+  const safeValue = value === null ? 0 : Math.round(Math.max(0, Math.min(value, 100)));
 
   return (
     <div className={`dino-stat dino-stat--${tone}`}>
@@ -53,8 +53,8 @@ function StatusBar({ label, value, displayValue, icon: Icon, tone }: StatusBarPr
 }
 
 export function DinoStatusHud({ status = defaultDinoStatus, mode = "compact" }: { status?: DinoStatus; mode?: "compact" | "full" }) {
-  const healthPercent = status.health !== null && status.maxHealth ? (status.health / status.maxHealth) * 100 : 0;
-  const display = (value: number | null) => value === null ? "—" : `${value}%`;
+  const healthPercent = status.health !== null && status.maxHealth ? Math.round((status.health / status.maxHealth) * 100) : 0;
+  const display = (value: number | null) => value === null ? "—" : `${Math.round(value)}%`;
 
   return (
     <section className={cn(`dino-status dino-status--${mode}`)} aria-label="Current dinosaur status">
@@ -70,7 +70,7 @@ export function DinoStatusHud({ status = defaultDinoStatus, mode = "compact" }: 
       <div className="dino-status__health">
         <div className="dino-status__health-heading">
           <span><HeartPulse aria-hidden="true" />Vitality</span>
-          <strong>{status.health === null ? "—" : status.health}<small>{status.maxHealth === null ? "" : ` / ${status.maxHealth}`}</small></strong>
+          <strong>{status.health === null ? "—" : Math.round(status.health)}<small>{status.maxHealth === null ? "" : ` / ${Math.round(status.maxHealth)}`}</small></strong>
         </div>
         <div className="dino-status__health-track" aria-hidden="true">
           <span style={{ width: `${Math.max(0, Math.min(healthPercent, 100))}%` }} />

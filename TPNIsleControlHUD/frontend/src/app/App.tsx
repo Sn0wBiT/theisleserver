@@ -54,7 +54,8 @@ export function App() {
         </div>
       )}
       {isUiDevelopment && (
-        <Launcher />
+        // <Launcher />
+        <AuthGate>{hud}</AuthGate>
       )}
       {!isUiDevelopment && (
         <>

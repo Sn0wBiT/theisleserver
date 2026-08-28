@@ -1,4 +1,5 @@
 import { ClipboardList, MapIcon, Users } from "lucide-react";
+import { isUiDevelopment } from "@/config/ui-development";
 import { CompactMinimap } from "@/features/minimap/CompactMinimap";
 import { DinoStatusHud } from "@/features/dino/DinoStatusHud";
 import { usePositionStream } from "@/features/minimap/usePositionStream";
@@ -32,7 +33,7 @@ export function HudLayer() {
 
   return (
     <div className="absolute inset-0 pointer-events-none">
-      {playerPresent && dinosaur && <DinoStatusHud status={{
+      {(isUiDevelopment || (playerPresent && dinosaur)) && <DinoStatusHud status={dinosaur ? {
         dinosaurId: dinosaur.dinosaurId,
         species: dinosaur.species ?? "Unknown species",
         variant: "Current player dino",
@@ -42,16 +43,19 @@ export function HudLayer() {
         growth: dinosaur.growth === null ? null : dinosaur.growth * 100,
         hunger: dinosaur.vitals?.hungerMax ? ((dinosaur.vitals.hunger ?? 0) / dinosaur.vitals.hungerMax) * 100 : null,
         thirst: dinosaur.vitals?.thirstMax ? ((dinosaur.vitals.thirst ?? 0) / dinosaur.vitals.thirstMax) * 100 : null,
-      }} />}
+      } : undefined} />}
       {/* Menus */}
-      <div id="btn-list" className="relative z-100 left-4 space-y-2">
+      <div
+        id="btn-list"
+        className={cn(
+          "absolute top-6 z-100 flex flex-col gap-2",
+          expandedMinimapOpen ? "left-4" : "left-[calc(24px+clamp(210px,18vw,280px)+8px)]",
+        )}
+      >
         {/* Map */}
         <button
           type="button"
-          className={cn(
-            "pointer-events-auto top-4 flex hidden cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
-            expandedMinimapOpen ? "relative" : "absolute left-56 top-14",
-          )}
+          className="pointer-events-auto flex hidden cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber"
           onClick={openMap}
           aria-label="Mở bản đồ"
           disabled={interactive}
@@ -64,24 +68,18 @@ export function HudLayer() {
         {/* Gang */}
         <button
           type="button"
-          className={cn(
-            "pointer-events-auto top-4 flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
-            expandedMinimapOpen ? "relative" : "absolute left-50",
-          )}
+          className="position relative -left-8 pointer-events-auto flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber"
           onClick={openGang}
-          aria-label="Mở bảng bang hội"
+          aria-label="Mở bảng bầy đàn"
           disabled={interactive}
         >
           <Users className="size-4 text-moss" />
-          <div className="absolute -bottom-10 text-shadow-moss hidden"><span className="block text-[9px] uppercase tracking-[0.18em] text-ash">Bang hội</span></div>
+          <div className="absolute -bottom-10 text-shadow-moss hidden"><span className="block text-[9px] uppercase tracking-[0.18em] text-ash">Bầy đàn</span></div>
         </button>
         {/* Quests */}
         <button
           type="button"
-          className={cn(
-            "pointer-events-auto top-4 flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber",
-            expandedMinimapOpen ? "relative" : "absolute left-56 top-14",
-          )}
+          className="pointer-events-auto flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber"
           onClick={openInteractive}
           aria-label="Mở bảng nhiệm vụ"
           disabled={interactive}
