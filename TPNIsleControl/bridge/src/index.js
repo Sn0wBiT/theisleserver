@@ -64,6 +64,10 @@ const territorySubscribers = new Set();
 const addrToSteam = new Map(); // pawn address -> steam
 const recentDamage = new Map(); // victim address -> { attackerAddr, ts }
 const recentAiDeaths = new Map(); // AI address -> death timestamp
+const hudPresence = new Map(); // steam -> latest authenticated HUD heartbeat
+const bridgeStartedAt = Date.now();
+const hudPresenceMaxAgeMs = 15_000;
+const bridgeStartupGraceMs = 20_000;
 const pendingHttpCommands = new PendingCommandQueue({
   journalPath: pendingCommandsPath,
   maxSize: config.maxPendingHttpCommands ?? 1000
@@ -403,6 +407,25 @@ function processReviveRequest(e) {
   appendCommand({ verb: "revive", steam, args: {} });
 }
 
+function enforceHudPresence(steam) {
+  const lastSeen = hudPresence.get(steam) || 0;
+  if (Date.now() - lastSeen <= hudPresenceMaxAgeMs) return;
+  appendCommand({
+    verb: "kick",
+    steam,
+    args: { message: "TPNIsleControlHUD is required. Download it, start it, then rejoin the server." }
+  });
+}
+
+function processPlayerJoined(e) {
+  const steam = String(e?.steam || "");
+  if (!/^\d{17}$/.test(steam)) return;
+  const startupGraceRemaining = bridgeStartupGraceMs - (Date.now() - bridgeStartedAt);
+  if (startupGraceRemaining <= 0) return enforceHudPresence(steam);
+  const timer = setTimeout(() => enforceHudPresence(steam), startupGraceRemaining);
+  timer.unref?.();
+}
+
 async function processTerritoryActivity(e) {
   const result = await store.recordTerritoryActivity({
     eventId: e?.event_id || e?.eventId,
@@ -444,6 +467,7 @@ setInterval(() => {
     if (e.type === "help_request") processHelpRequest(e);
     if (e.type === "human_request") processHumanRequest(e);
     if (e.type === "revive_request") processReviveRequest(e);
+    if (e.type === "player_joined") processPlayerJoined(e);
     if (e.type === "territory_activity") processTerritoryActivity(e).catch((error) => console.error("[territory] event failed", error));
     if (e.type === "damage_hit" || e.type === "ai_dinosaur_death") processNativeEvent(e);
   });
@@ -590,6 +614,7 @@ async function handleRequest(req, res) {
           if (event?.type === "help_request") processHelpRequest(event);
           if (event?.type === "human_request") processHumanRequest(event);
           if (event?.type === "revive_request") processReviveRequest(event);
+          if (event?.type === "player_joined") processPlayerJoined(event);
           if (event?.type === "territory_activity") await processTerritoryActivity(event);
           if (event?.type === "damage_hit" || event?.type === "ai_dinosaur_death") processNativeEvent(event);
         }
@@ -606,6 +631,14 @@ async function handleRequest(req, res) {
 
   if (!authorized(req)) {
     return send(res, 401, { ok: false, error: "unauthorized" });
+  }
+
+  if (req.method === "POST" && url.pathname === "/hud/presence") {
+    const input = await bodyJson(req);
+    const steam = String(input?.steamId || "");
+    if (!/^\d{17}$/.test(steam)) return send(res, 400, { ok: false, error: "invalid-steam-id" });
+    hudPresence.set(steam, Date.now());
+    return send(res, 200, { ok: true });
   }
 
   if (req.method === "GET" && url.pathname === "/players") {

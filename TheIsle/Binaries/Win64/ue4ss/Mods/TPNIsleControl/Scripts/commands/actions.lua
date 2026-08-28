@@ -133,11 +133,27 @@ local function message(steam, args)
     return Messaging.notify(steam, text)
 end
 
+local function kick(steam, args)
+    local controller = Players.controllerForSteam(steam)
+    if Players.liveAddress(controller) == nil then return false, "player offline" end
+    local messageText = Runtime.jsonReadString(args, "message")
+        or "Bạn cần chạy TPNIsleControlHUD. Tải, khởi động và vào lại máy chủ."
+    local ok, callErr = pcall(function()
+        if FText ~= nil then
+            controller:ClientReturnToMainMenuWithTextReason(FText(messageText))
+        else
+            controller:ClientReturnToMainMenuWithTextReason(messageText)
+        end
+    end)
+    if not ok then return false, tostring(callErr) end
+    return true, "player returned to main menu"
+end
+
 Actions.handlers = {
     setgrowth = setGrowth, heal = heal, kill = kill, setvital = setVital, teleport = teleport,
     mutations = mutations, prime = prime,
     unprime = function(steam) return prime(steam, '{"value":false}') end,
-    notify = message,
+    notify = message, kick = kick,
     human = Human.execute,
     revive = revive
 }
