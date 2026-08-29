@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 import { Button } from "@/components/ui/old_button";
 import { QuestTabs } from "@/features/quests/components/QuestTabs";
 import { useQuests } from "@/features/quests/hooks/useQuests";
-import { closeInteractiveMode } from "@/services/native-bridge";
+import { closePanelMode } from "@/services/native-bridge";
 import { clampPanelPosition, loadPanelPosition, savePanelPosition, type PanelPosition } from "@/features/quests/panel-position";
 
 export function QuestPanel() {
@@ -97,7 +97,7 @@ export function QuestPanel() {
             size="icon"
             variant="ghost"
             onPointerDown={(event) => event.stopPropagation()}
-            onClick={closeInteractiveMode}
+            onClick={() => closePanelMode("quests")}
           >
             <X className="size-4" />
           </Button>

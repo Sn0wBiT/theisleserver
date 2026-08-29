@@ -48,6 +48,9 @@ int Application::Run() {
             if (input_.PollMapPressed(gameConnected_ && tracker_.IsForeground())) {
                 HandleWebCommand(L"overlay.openMap", false, L"");
             }
+            if (input_.PollFactionPressed(gameConnected_ && tracker_.IsForeground())) {
+                webview_.PostJson(L"{\"type\":\"overlay.togglePanel\",\"panel\":\"gang\"}");
+            }
             POINT cursor{};
             bool capturePointer = false;
             if (mode_ == OverlayMode::Hud && GetCursorPos(&cursor) &&

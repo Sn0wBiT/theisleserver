@@ -1,5 +1,24 @@
+const REFRESH_TOKEN_STORAGE_KEY = "tpn_hud_refresh_token";
+
+function readPersistedRefreshToken() {
+  try {
+    return globalThis.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function persistRefreshToken(token: string | null) {
+  try {
+    if (token) globalThis.localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, token);
+    else globalThis.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+  } catch {
+    // Keep the current session usable in memory if persistent storage is unavailable.
+  }
+}
+
 let accessToken: string | null = null;
-let refreshToken: string | null = null;
+let refreshToken: string | null = readPersistedRefreshToken();
 let refreshOperation: Promise<AuthResult | null> | null = null;
 
 export type Player = { steamId: string; displayName: string; avatarUrl: string | null };
@@ -17,8 +36,13 @@ export function getRefreshToken() { return refreshToken; }
 export function storeSession(result: AuthResult) {
   accessToken = result.accessToken;
   refreshToken = result.refreshToken;
+  persistRefreshToken(result.refreshToken);
 }
-export function clearSession() { accessToken = null; refreshToken = null; }
+export function clearSession() {
+  accessToken = null;
+  refreshToken = null;
+  persistRefreshToken(null);
+}
 export function sharedRefresh(run: (token: string) => Promise<AuthResult>) {
   const token = getRefreshToken();
   if (!token) return Promise.resolve(null);

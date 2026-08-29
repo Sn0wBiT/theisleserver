@@ -1,7 +1,7 @@
 import { Check, CircleAlert, Clock3, Copy, RefreshCw, Shield, UserPlus, Users, X } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Button } from "@/components/ui/old_button";
-import { closeInteractiveMode } from "@/services/native-bridge";
+import { closePanelMode } from "@/services/native-bridge";
 import {
   approveFactionJoinRequest,
   cancelFactionJoinRequest,
@@ -16,7 +16,12 @@ import {
   type PendingFactionJoinRequest,
 } from "@/services/territory-api";
 
+let savedPosition = { x: 0, y: 0 };
+
 export function GangPanel() {
+  const panelRef = useRef<HTMLElement>(null);
+  const dragRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number; rect: DOMRect } | null>(null);
+  const [position, setPosition] = useState(savedPosition);
   const [faction, setFaction] = useState<Faction | null>(null);
   const [joinRequest, setJoinRequest] = useState<FactionJoinRequest | null>(null);
   const [leaderRequests, setLeaderRequests] = useState<PendingFactionJoinRequest[]>([]);
@@ -29,6 +34,28 @@ export function GangPanel() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  function startDrag(event: ReactPointerEvent<HTMLElement>) {
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { pointerX: event.clientX, pointerY: event.clientY, x: position.x, y: position.y, rect };
+  }
+
+  function drag(event: ReactPointerEvent<HTMLElement>) {
+    const start = dragRef.current;
+    if (!start) return;
+    const deltaX = Math.min(window.innerWidth - start.rect.right, Math.max(-start.rect.left, event.clientX - start.pointerX));
+    const deltaY = Math.min(window.innerHeight - start.rect.bottom, Math.max(-start.rect.top, event.clientY - start.pointerY));
+    const next = { x: start.x + deltaX, y: start.y + deltaY };
+    savedPosition = next;
+    setPosition(next);
+  }
+
+  function stopDrag(event: ReactPointerEvent<HTMLElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    dragRef.current = null;
+  }
 
   const refreshMembership = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true);
@@ -143,13 +170,13 @@ export function GangPanel() {
   }
 
   return (
-    <section className="hud-panel pointer-events-auto relative flex max-h-[min(760px,calc(100vh-32px))] w-[min(440px,calc(100vw-32px))] flex-col overflow-hidden border border-stone shadow-hud-heavy" aria-label="Thông tin bầy đàn">
-      <header className="flex items-center justify-between border-b border-stone/50 px-4 py-3">
+    <section ref={panelRef} className="hud-panel pointer-events-auto relative flex max-h-[min(760px,calc(100vh-32px))] w-[min(440px,calc(100vw-32px))] flex-col overflow-hidden border border-stone shadow-hud-heavy" style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }} aria-label="Thông tin bầy đàn">
+      <header className="flex cursor-grab touch-none select-none items-center justify-between border-b border-stone/50 px-4 py-3 active:cursor-grabbing" aria-label="Kéo bảng bầy đàn" onPointerDown={startDrag} onPointerMove={drag} onPointerUp={stopDrag} onPointerCancel={stopDrag}>
         <div className="flex items-center gap-3">
           <div className="grid size-9 place-items-center border border-stone/60 bg-soil"><Users className="size-4 text-amber" /></div>
           <h1 className="font-display text-xl font-medium uppercase leading-none tracking-[0.1em] text-bone">Bầy đàn</h1>
         </div>
-        <Button className="cursor-pointer" aria-label="Đóng bảng bầy đàn" size="icon" variant="ghost" onClick={closeInteractiveMode}><X className="size-4" /></Button>
+        <Button className="cursor-pointer" aria-label="Đóng bảng bầy đàn" size="icon" variant="ghost" onPointerDown={(event) => event.stopPropagation()} onClick={() => closePanelMode("gang")}><X className="size-4" /></Button>
       </header>
 
       <div className="overflow-y-auto">

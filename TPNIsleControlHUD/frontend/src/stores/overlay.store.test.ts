@@ -3,31 +3,32 @@ import { useOverlayStore } from "./overlay.store";
 
 describe("overlay panel state", () => {
   beforeEach(() => {
-    useOverlayStore.setState({ interactive: false, panel: "none", expandedMinimapOpen: false });
+    useOverlayStore.setState({ interactive: false, panel: "none", gangOpen: false, expandedMinimapOpen: false });
   });
 
   it("opens quests and the expanded minimap independently", () => {
     const store = useOverlayStore.getState();
 
     store.setInteractive(true);
+    store.openPanel("quests");
     expect(useOverlayStore.getState()).toMatchObject({ panel: "quests", expandedMinimapOpen: false });
 
     useOverlayStore.getState().openPanel("minimap");
-    expect(useOverlayStore.getState()).toMatchObject({ panel: "none", expandedMinimapOpen: true });
+    expect(useOverlayStore.getState()).toMatchObject({ panel: "quests", expandedMinimapOpen: true });
 
     useOverlayStore.getState().openPanel("quests");
     expect(useOverlayStore.getState()).toMatchObject({ panel: "quests", expandedMinimapOpen: true });
   });
 
   it("closes both panels when interactive mode ends", () => {
-    useOverlayStore.setState({ interactive: true, panel: "quests", expandedMinimapOpen: true });
+    useOverlayStore.setState({ interactive: true, panel: "quests", gangOpen: true, expandedMinimapOpen: true });
     useOverlayStore.getState().setInteractive(false);
-    expect(useOverlayStore.getState()).toMatchObject({ interactive: false, panel: "none", expandedMinimapOpen: false });
+    expect(useOverlayStore.getState()).toMatchObject({ interactive: false, panel: "none", gangOpen: false, expandedMinimapOpen: false });
   });
 
   it("preserves the selected panel when native mode confirmation repeats", () => {
-    useOverlayStore.setState({ interactive: true, panel: "gang", expandedMinimapOpen: false });
+    useOverlayStore.setState({ interactive: true, panel: "quests", gangOpen: true, expandedMinimapOpen: false });
     useOverlayStore.getState().setInteractive(true);
-    expect(useOverlayStore.getState()).toMatchObject({ interactive: true, panel: "gang", expandedMinimapOpen: false });
+    expect(useOverlayStore.getState()).toMatchObject({ interactive: true, panel: "quests", gangOpen: true, expandedMinimapOpen: false });
   });
 });

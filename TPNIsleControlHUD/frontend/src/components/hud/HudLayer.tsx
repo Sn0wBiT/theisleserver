@@ -17,6 +17,7 @@ export function HudLayer() {
   const openInteractive = () => {
     postNativeMessage({ type: "overlay.setInteractive", value: true });
     setInteractive(true);
+    openPanel("quests");
   };
 
   const openMap = () => {
@@ -33,7 +34,7 @@ export function HudLayer() {
 
   return (
     <div className="absolute inset-0 pointer-events-none">
-      {(isUiDevelopment || (playerPresent && dinosaur)) && <DinoStatusHud status={dinosaur ? {
+      {(isUiDevelopment || (playerPresent && dinosaur)) && <DinoStatusHud draggable={interactive} status={dinosaur ? {
         dinosaurId: dinosaur.dinosaurId,
         species: dinosaur.species ?? "Unknown species",
         variant: "Current player dino",
@@ -58,7 +59,6 @@ export function HudLayer() {
           className="pointer-events-auto flex hidden cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber"
           onClick={openMap}
           aria-label="Mở bản đồ"
-          disabled={interactive}
         >
           <MapIcon className="size-4 text-moss" />
           <div className="absolute -bottom-10 text-shadow-moss hidden">
@@ -68,13 +68,14 @@ export function HudLayer() {
         {/* Gang */}
         <button
           type="button"
-          className="position relative -left-8 pointer-events-auto flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber"
+          className={cn("position relative pointer-events-auto flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber", {
+            "-left-8": !expandedMinimapOpen
+          })}
           onClick={openGang}
           aria-label="Mở bảng bầy đàn"
-          disabled={interactive}
         >
           <Users className="size-4 text-moss" />
-          <div className="absolute -bottom-10 text-shadow-moss hidden"><span className="block text-[9px] uppercase tracking-[0.18em] text-ash">Bầy đàn</span></div>
+          <div className="absolute -bottom-4 text-center w-full left-0 text-shadow-moss "><span className="block text-[9px] uppercase tracking-[0.18em] text-ash">F7</span></div>
         </button>
         {/* Quests */}
         <button
@@ -82,7 +83,6 @@ export function HudLayer() {
           className="pointer-events-auto flex cursor-pointer items-center gap-2 rounded-full border border-stone bg-charcoal/90 p-2 text-left text-bone shadow-hud transition-all duration-300 ease-out hover:border-amber focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber"
           onClick={openInteractive}
           aria-label="Mở bảng nhiệm vụ"
-          disabled={interactive}
         >
           <ClipboardList className="size-4 text-moss" />
           <div className="absolute -bottom-10 text-shadow-moss hidden">

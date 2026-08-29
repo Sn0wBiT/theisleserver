@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Droplets, Drumstick, HeartPulse, Leaf, Zap } from "lucide-react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { specimenName } from "./specimen-name";
 
 export type DinoStatus = {
@@ -53,13 +54,41 @@ function StatusBar({ label, value, displayValue, icon: Icon, tone }: StatusBarPr
   );
 }
 
-export function DinoStatusHud({ status = defaultDinoStatus, mode = "compact" }: { status?: DinoStatus; mode?: "compact" | "full" }) {
+let savedPosition = { x: 0, y: 0 };
+
+export function DinoStatusHud({ status = defaultDinoStatus, mode = "compact", draggable = false }: { status?: DinoStatus; mode?: "compact" | "full"; draggable?: boolean }) {
+  const panelRef = useRef<HTMLElement>(null);
+  const dragRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number; rect: DOMRect } | null>(null);
+  const [position, setPosition] = useState(savedPosition);
   const healthPercent = status.health !== null && status.maxHealth ? Math.round((status.health / status.maxHealth) * 100) : 0;
   const display = (value: number | null) => value === null ? "—" : `${Math.round(value)}%`;
 
+  function startDrag(event: ReactPointerEvent<HTMLElement>) {
+    if (!draggable) return;
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { pointerX: event.clientX, pointerY: event.clientY, x: position.x, y: position.y, rect };
+  }
+
+  function drag(event: ReactPointerEvent<HTMLElement>) {
+    const start = dragRef.current;
+    if (!start) return;
+    const deltaX = Math.min(window.innerWidth - start.rect.right, Math.max(-start.rect.left, event.clientX - start.pointerX));
+    const deltaY = Math.min(window.innerHeight - start.rect.bottom, Math.max(-start.rect.top, event.clientY - start.pointerY));
+    const next = { x: start.x + deltaX, y: start.y + deltaY };
+    savedPosition = next;
+    setPosition(next);
+  }
+
+  function stopDrag(event: ReactPointerEvent<HTMLElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    dragRef.current = null;
+  }
+
   return (
-    <section className={cn(`dino-status dino-status--${mode}`)} aria-label="Current dinosaur status">
-      <header className="dino-status__header">
+    <section ref={panelRef} className={cn(`dino-status dino-status--${mode}`, draggable && "pointer-events-auto")} style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }} aria-label="Current dinosaur status">
+      <header className={cn("dino-status__header", draggable && "cursor-grab touch-none select-none active:cursor-grabbing")} onPointerDown={startDrag} onPointerMove={drag} onPointerUp={stopDrag} onPointerCancel={stopDrag}>
         <div className="dino-status__identity">
           <p className="eyebrow">Giống loài</p>
           <h2 title={status.species}>{specimenName(status.species)}</h2>

@@ -5,7 +5,7 @@ import { useOverlayStore } from "@/stores/overlay.store";
 
 describe("native runtime bootstrap", () => {
   beforeEach(() => {
-    useOverlayStore.setState({ runtimeReady: false, runtimeError: null, gameProcessConnected: false, gameForeground: false, shuttingDown: false, interactive: false, panel: "none", expandedMinimapOpen: false });
+    useOverlayStore.setState({ runtimeReady: false, runtimeError: null, gameProcessConnected: false, gameForeground: false, shuttingDown: false, interactive: false, panel: "none", gangOpen: false, expandedMinimapOpen: false });
   });
 
   it("waits for and validates delayed native configuration", () => {
@@ -28,7 +28,17 @@ describe("native runtime bootstrap", () => {
   it("opens the expanded minimap requested by the native map hotkey", () => {
     handleNativeEvent({ type: "overlay.modeChanged", mode: "interactive" });
     handleNativeEvent({ type: "overlay.openPanel", panel: "minimap" });
-    expect(useOverlayStore.getState()).toMatchObject({ interactive: true, panel: "none", expandedMinimapOpen: true });
+    expect(useOverlayStore.getState()).toMatchObject({ interactive: true, panel: "quests", expandedMinimapOpen: true });
+  });
+
+  it("toggles the faction panel requested by the native F7 hotkey", () => {
+    vi.stubGlobal("window", {});
+    handleNativeEvent({ type: "overlay.togglePanel", panel: "gang" });
+    expect(useOverlayStore.getState()).toMatchObject({ interactive: true, panel: "none", gangOpen: true, expandedMinimapOpen: false });
+
+    handleNativeEvent({ type: "overlay.togglePanel", panel: "gang" });
+    expect(useOverlayStore.getState()).toMatchObject({ interactive: false, panel: "none", gangOpen: false, expandedMinimapOpen: false });
+    vi.unstubAllGlobals();
   });
 
   it("opens browser login against the configured API origin", () => {

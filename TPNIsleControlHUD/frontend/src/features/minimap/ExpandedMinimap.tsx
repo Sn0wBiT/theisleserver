@@ -24,7 +24,7 @@ export function ExpandedMinimap() {
     <header className="expanded-minimap__header">
       <div><h1>BẢN ĐỒ</h1></div>
       <div className="flex items-center gap-2">
-        <div className="minimap-frame-control hidden" role="group" aria-label="Compact minimap frame">
+        <div className="minimap-frame-control hidden" role="group" aria-label="Compact minimap frame" style={{ display: "none" }}>
           {(["square", "circle"] as MinimapFrame[]).map((value) => <button key={value} type="button" className={frame === value ? "is-active" : ""} onClick={() => setFrame(value)} aria-pressed={frame === value}>{value === "square" ? <Square /> : <Circle />}{value === 'square' ? 'Vuông' : 'Tròn'}</button>)}
         </div>
         <Button variant="ghost" onClick={() => setShowTerritories((visible) => !visible)} aria-pressed={showTerritories} title={showTerritories ? "Ẩn lãnh thổ" : "Hiện lãnh thổ"}>

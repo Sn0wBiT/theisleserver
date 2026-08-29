@@ -57,6 +57,7 @@ On every launch, the HUD hands off to a temporary updater process before CEF sta
 ## Controls
 
 - `F6` toggles HUD and interactive modes.
+- `F7` toggles the factions panel while the game is in the foreground.
 - `F12` opens CEF DevTools in development builds when the compiled `enableDevTools` setting is enabled. In interactive mode, right-click an element and choose **Inspect element** to inspect it directly.
 - `Escape` closes the interactive quest panel.
 - HUD mode is click-through; interactive mode accepts mouse input.

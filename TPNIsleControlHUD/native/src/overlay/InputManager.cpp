@@ -16,11 +16,19 @@ void InputManager::Unregister(HWND owner) {
     if (toggleRegistered_) UnregisterHotKey(owner, ToggleHotkeyId);
     toggleRegistered_ = false;
     mapKeyDown_ = false;
+    factionKeyDown_ = false;
 }
 
 bool InputManager::PollMapPressed(bool enabled) {
     const bool keyDown = (GetAsyncKeyState(L'M') & 0x8000) != 0;
     const bool pressed = enabled && keyDown && !mapKeyDown_;
     mapKeyDown_ = keyDown;
+    return pressed;
+}
+
+bool InputManager::PollFactionPressed(bool enabled) {
+    const bool keyDown = (GetAsyncKeyState(VK_F7) & 0x8000) != 0;
+    const bool pressed = enabled && keyDown && !factionKeyDown_;
+    factionKeyDown_ = keyDown;
     return pressed;
 }

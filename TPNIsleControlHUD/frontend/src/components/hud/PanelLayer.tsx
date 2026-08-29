@@ -4,7 +4,7 @@ import { ExpandedMinimap } from "@/features/minimap/ExpandedMinimap";
 import { useOverlayStore } from "@/stores/overlay.store";
 
 export function PanelLayer() {
-  const { interactive, panel, expandedMinimapOpen } = useOverlayStore();
+  const { interactive, panel, gangOpen, expandedMinimapOpen } = useOverlayStore();
   if (!interactive) return null;
 
   return (
@@ -15,7 +15,7 @@ export function PanelLayer() {
         </div>
       )}
       {panel === "quests" && <div className="pointer-events-none absolute z-[110] inset-0 flex items-start justify-end p-4 sm:p-6"><QuestPanel /></div>}
-      {panel === "gang" && <div className="pointer-events-none absolute z-[110] inset-0 flex items-start justify-end p-4 sm:p-6"><GangPanel /></div>}
+      {gangOpen && <div className="pointer-events-none absolute z-[110] inset-0 flex items-start justify-end p-4 sm:p-6"><GangPanel /></div>}
     </>
   );
 }
