@@ -35,6 +35,7 @@
   --color-border-subtle: rgb(105 182 160 / 0.42);
   --color-progress-track: #162822;
   --color-progress-fill: #e3e7b2;
+  --color-success: #7fc5a5;
   --duration-fast: 100ms;
   --radius-isle: 2px;
   --background: oklch(1 0 0);
@@ -90,7 +91,8 @@ button { font: inherit; cursor: pointer; }
 .dino-status::before { content: ""; position: absolute; top: 0; left: 0; width: 34%; height: 2px; background: var(--color-control-active); box-shadow: 0 0 8px rgb(155 215 196 / .45); }
 .dino-status::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, rgb(140 220 195 / .025) 0, rgb(140 220 195 / .025) 1px, transparent 1px, transparent 3px); mix-blend-mode: screen; }
 .dino-status__header { position: relative; z-index: 1; display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--color-border-subtle); }
-.dino-status__header h2 { margin: 5px 0 2px; color: var(--color-text-bright); font: 500 20px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; }
+.dino-status__identity { min-width: 0; }
+.dino-status__header h2 { overflow: hidden; margin: 5px 0 2px; color: var(--color-text-bright); font: 500 20px/1 var(--font-display); letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .dino-status__variant { margin: 0; color: var(--color-ash); font: 9px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
 .dino-status__live { display: flex; align-items: center; gap: 5px; margin-top: 2px; color: var(--color-success); font: 9px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
 .dino-status__live i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }

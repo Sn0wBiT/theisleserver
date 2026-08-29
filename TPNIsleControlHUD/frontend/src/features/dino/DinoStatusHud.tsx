@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Droplets, Drumstick, HeartPulse, Leaf, Zap } from "lucide-react";
+import { specimenName } from "./specimen-name";
 
 export type DinoStatus = {
   dinosaurId?: string | null;
@@ -59,10 +60,9 @@ export function DinoStatusHud({ status = defaultDinoStatus, mode = "compact" }: 
   return (
     <section className={cn(`dino-status dino-status--${mode}`)} aria-label="Current dinosaur status">
       <header className="dino-status__header">
-        <div>
+        <div className="dino-status__identity">
           <p className="eyebrow">Current specimen</p>
-          <h2>{status.species}</h2>
-          <p className="dino-status__variant">{status.variant}</p>
+          <h2 title={status.species}>{specimenName(status.species)}</h2>
         </div>
         <div className="dino-status__live"><i />Live</div>
       </header>

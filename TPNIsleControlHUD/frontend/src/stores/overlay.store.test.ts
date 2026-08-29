@@ -24,4 +24,10 @@ describe("overlay panel state", () => {
     useOverlayStore.getState().setInteractive(false);
     expect(useOverlayStore.getState()).toMatchObject({ interactive: false, panel: "none", expandedMinimapOpen: false });
   });
+
+  it("preserves the selected panel when native mode confirmation repeats", () => {
+    useOverlayStore.setState({ interactive: true, panel: "gang", expandedMinimapOpen: false });
+    useOverlayStore.getState().setInteractive(true);
+    expect(useOverlayStore.getState()).toMatchObject({ interactive: true, panel: "gang", expandedMinimapOpen: false });
+  });
 });

@@ -29,10 +29,13 @@ export const useOverlayStore = create<OverlayState>((set) => ({
   runtimeError: null,
   panel: "none",
   expandedMinimapOpen: false,
-  setInteractive: (interactive) => set({
-    interactive,
-    panel: interactive ? "quests" : "none",
-    expandedMinimapOpen: false,
+  setInteractive: (interactive) => set((state) => {
+    if (state.interactive === interactive) return state;
+    return {
+      interactive,
+      panel: interactive ? "quests" : "none",
+      expandedMinimapOpen: false,
+    };
   }),
   setGameProcessConnected: (gameProcessConnected) => set({ gameProcessConnected }),
   setGameForeground: (gameForeground) => set({ gameForeground }),

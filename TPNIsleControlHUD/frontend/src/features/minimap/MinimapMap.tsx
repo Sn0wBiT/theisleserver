@@ -5,6 +5,11 @@ import type { Calibration, PositionEvent } from "./types";
 import { imagePointToLeaflet, worldToMap } from "./calibration";
 import { loadTerritories, territoryColor, territoryPolygon, type Territory } from "./territories";
 
+const MAP_OVERLAY_URLS = [
+  "https://www.islemaps.com/layers/water.png",
+  "https://www.islemaps.com/mudOverlay.png",
+];
+
 type Props = {
   calibration: Calibration;
   position: PositionEvent | null;
@@ -43,6 +48,7 @@ export function MinimapMap({ calibration, position, compact = false, follow, rec
       maxBounds: bounds.pad(0.35),
     });
     L.imageOverlay(calibration.image.src, bounds, { attribution: calibration.attribution }).addTo(map);
+    for (const url of MAP_OVERLAY_URLS) L.imageOverlay(url, bounds).addTo(map);
     territoryLayerRef.current = L.layerGroup().addTo(map);
     map.fitBounds(bounds, { animate: false });
     if (!compact) map.on("dragstart", () => onFollowChangeRef.current?.(false));
