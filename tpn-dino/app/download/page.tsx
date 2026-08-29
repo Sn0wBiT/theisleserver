@@ -15,7 +15,10 @@ export default function DownloadPage() {
         <Image src="/images/bg.jpg" fill priority sizes="100vw" alt="" />
       </div>
       <header className="download-nav">
-        <Link className="logo download-logo" href="/">TPN<span>Dino Việt Nam</span></Link>
+        <Link className="logo download-logo" href="/" aria-label="TPN Dino Việt Nam">
+          <Image className="brand-logo-image" src="/images/logo_TPN_Dino_Vietnam.png" width={58} height={58} priority alt="" />
+          <span>TPN Dino Việt Nam</span>
+        </Link>
         <Link className="text-link" href="/auth/steam">Đăng nhập Steam</Link>
       </header>
       <div className="download-content">

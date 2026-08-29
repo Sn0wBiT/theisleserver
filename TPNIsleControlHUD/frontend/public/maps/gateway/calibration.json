@@ -1,6 +1,6 @@
 {
-  "revision": "islemaps-gateway-light-layers-2026-08-29",
-  "image": { "src": "https://www.islemaps.com/map/map-light.png", "width": 2500, "height": 2500 },
+  "revision": "bundled-gateway-light-layers-2026-08-29",
+  "image": { "src": "/maps/gateway/gateway-light.png", "width": 2500, "height": 2500 },
   "worldBounds": { "minX": -560000, "maxX": 674000, "minY": -618000, "maxY": 616000 },
   "axes": { "x": "left-to-right", "y": "top-to-bottom" },
   "attribution": "Isle Gateway Map",
