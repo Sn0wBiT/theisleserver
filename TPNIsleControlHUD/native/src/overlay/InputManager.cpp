@@ -9,13 +9,18 @@ bool InputManager::Register(HWND owner, const std::wstring& key) {
         } catch (...) {}
     }
     toggleRegistered_ = RegisterHotKey(owner, ToggleHotkeyId, MOD_NOREPEAT, virtualKey) != FALSE;
-    mapRegistered_ = RegisterHotKey(owner, MapHotkeyId, MOD_NOREPEAT, L'M') != FALSE;
-    return toggleRegistered_ && mapRegistered_;
+    return toggleRegistered_;
 }
 
 void InputManager::Unregister(HWND owner) {
     if (toggleRegistered_) UnregisterHotKey(owner, ToggleHotkeyId);
-    if (mapRegistered_) UnregisterHotKey(owner, MapHotkeyId);
     toggleRegistered_ = false;
-    mapRegistered_ = false;
+    mapKeyDown_ = false;
+}
+
+bool InputManager::PollMapPressed(bool enabled) {
+    const bool keyDown = (GetAsyncKeyState(L'M') & 0x8000) != 0;
+    const bool pressed = enabled && keyDown && !mapKeyDown_;
+    mapKeyDown_ = keyDown;
+    return pressed;
 }

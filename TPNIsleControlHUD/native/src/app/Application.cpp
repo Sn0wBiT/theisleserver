@@ -34,8 +34,6 @@ int Application::Run() {
     while (GetMessageW(&message, nullptr, 0, 0) > 0) {
         if (message.message == WM_HOTKEY && message.wParam == InputManager::ToggleHotkeyId) {
             SetMode(mode_ == OverlayMode::Hud ? OverlayMode::Interactive : OverlayMode::Hud);
-        } else if (message.message == WM_HOTKEY && message.wParam == InputManager::MapHotkeyId) {
-            HandleWebCommand(L"overlay.openMap", false, L"");
         } else if (message.message == kTrayCallbackMessage) {
             const UINT action = LOWORD(message.lParam);
             if (action == WM_CONTEXTMENU) {
@@ -47,6 +45,9 @@ int Application::Run() {
             Tick();
         } else if (message.message == WM_TIMER && message.hwnd == overlay_.GetHandle() &&
                    message.wParam == kCefPumpTimer) {
+            if (input_.PollMapPressed(gameConnected_ && tracker_.IsForeground())) {
+                HandleWebCommand(L"overlay.openMap", false, L"");
+            }
             POINT cursor{};
             bool capturePointer = false;
             if (mode_ == OverlayMode::Hud && GetCursorPos(&cursor) &&

@@ -68,6 +68,7 @@ const hudPresence = new Map(); // steam -> latest authenticated HUD heartbeat
 const bridgeStartedAt = Date.now();
 const hudPresenceMaxAgeMs = 15_000;
 const bridgeStartupGraceMs = 20_000;
+const hudKickWarningMs = 15_000;
 const pendingHttpCommands = new PendingCommandQueue({
   journalPath: pendingCommandsPath,
   maxSize: config.maxPendingHttpCommands ?? 1000
@@ -410,11 +411,20 @@ function processReviveRequest(e) {
 function enforceHudPresence(steam) {
   const lastSeen = hudPresence.get(steam) || 0;
   if (Date.now() - lastSeen <= hudPresenceMaxAgeMs) return;
+
+  const message = "TPNIsleControlHUD is required. Start it now or you will be disconnected in 5 seconds, then rejoin the server.";
   appendCommand({
-    verb: "kick",
+    verb: "notify",
     steam,
-    args: { message: "TPNIsleControlHUD is required. Download it, start it, then rejoin the server." }
+    args: { message }
   });
+
+  const timer = setTimeout(() => {
+    const latestSeen = hudPresence.get(steam) || 0;
+    if (Date.now() - latestSeen <= hudPresenceMaxAgeMs) return;
+    appendCommand({ verb: "kick", steam, args: { message } });
+  }, hudKickWarningMs);
+  timer.unref?.();
 }
 
 function processPlayerJoined(e) {
