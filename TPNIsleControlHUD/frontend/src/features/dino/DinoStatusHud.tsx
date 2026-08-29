@@ -61,15 +61,15 @@ export function DinoStatusHud({ status = defaultDinoStatus, mode = "compact" }: 
     <section className={cn(`dino-status dino-status--${mode}`)} aria-label="Current dinosaur status">
       <header className="dino-status__header">
         <div className="dino-status__identity">
-          <p className="eyebrow">Current specimen</p>
+          <p className="eyebrow">Giống loài</p>
           <h2 title={status.species}>{specimenName(status.species)}</h2>
         </div>
-        <div className="dino-status__live"><i />Live</div>
+        <div className="dino-status__live"><i />Sống</div>
       </header>
 
       <div className="dino-status__health">
         <div className="dino-status__health-heading">
-          <span><HeartPulse aria-hidden="true" />Vitality</span>
+          <span><HeartPulse aria-hidden="true" />Máu</span>
           <strong>{status.health === null ? "—" : Math.round(status.health)}<small>{status.maxHealth === null ? "" : ` / ${Math.round(status.maxHealth)}`}</small></strong>
         </div>
         <div className="dino-status__health-track" aria-hidden="true">
@@ -78,10 +78,10 @@ export function DinoStatusHud({ status = defaultDinoStatus, mode = "compact" }: 
       </div>
 
       <div className="dino-status__grid">
-        <StatusBar label="Stamina" value={status.stamina} displayValue={display(status.stamina)} icon={Zap} tone="stamina" />
-        <StatusBar label="Growth" value={status.growth} displayValue={display(status.growth)} icon={Leaf} tone="growth" />
-        <StatusBar label="Hunger" value={status.hunger} displayValue={display(status.hunger)} icon={Drumstick} tone="hunger" />
-        <StatusBar label="Thirst" value={status.thirst} displayValue={display(status.thirst)} icon={Droplets} tone="thirst" />
+        <StatusBar label="Thể lực" value={status.stamina} displayValue={display(status.stamina)} icon={Zap} tone="stamina" />
+        <StatusBar label="Tăng trưởng" value={status.growth} displayValue={display(status.growth)} icon={Leaf} tone="growth" />
+        <StatusBar label="Đói" value={status.hunger} displayValue={display(status.hunger)} icon={Drumstick} tone="hunger" />
+        <StatusBar label="Khát" value={status.thirst} displayValue={display(status.thirst)} icon={Droplets} tone="thirst" />
       </div>
     </section>
   );
