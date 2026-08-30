@@ -67,7 +67,8 @@ void OverlayWindow::SetLauncherBounds() {
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 void OverlayWindow::SetLauncherMode(bool enabled) {
-    if (!hwnd_) return;
+    if (!hwnd_ || launcherMode_ == enabled) return;
+    launcherMode_ = enabled;
     auto styles = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
     if (enabled) {
         styles &= ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);

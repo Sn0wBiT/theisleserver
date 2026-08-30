@@ -19,4 +19,5 @@ private:
     HWND hwnd_{nullptr};
     bool interactive_{false};
     bool hudPointerCaptured_{false};
+    bool launcherMode_{false};
 };

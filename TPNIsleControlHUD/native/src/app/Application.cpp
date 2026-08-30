@@ -15,6 +15,7 @@ constexpr UINT kReconnectCommand = 1;
 constexpr UINT kExitCommand = 2;
 constexpr UINT_PTR kTrackerTimer = 1;
 constexpr UINT_PTR kCefPumpTimer = 2;
+constexpr int kAppIconResourceId = 101;
 
 std::filesystem::path ExecutableDirectory() {
     std::wstring path(32768, L'\0');
@@ -38,6 +39,11 @@ int Application::Run() {
             const UINT action = LOWORD(message.lParam);
             if (action == WM_CONTEXTMENU) {
                 ShowTrayMenu(POINT{GET_X_LPARAM(message.wParam), GET_Y_LPARAM(message.wParam)});
+            }
+            else if (action == WM_RBUTTONUP) {
+                POINT cursor{-1, -1};
+                GetCursorPos(&cursor);
+                ShowTrayMenu(cursor);
             }
             else if (action == WM_LBUTTONDBLCLK) Reconnect();
         } else if (message.message == WM_TIMER && message.hwnd == overlay_.GetHandle() &&
@@ -177,7 +183,10 @@ void Application::HandleWebCommand(const std::wstring& type, bool value, const s
         const auto result = reinterpret_cast<std::intptr_t>(ShellExecuteW(nullptr, L"open", uri.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
         Log(result > 32 ? L"The Isle launch requested" : L"The Isle launch request failed");
     }
-    else if (type == L"app.minimize") ShowWindow(overlay_.GetHandle(), SW_MINIMIZE);
+    else if (type == L"app.minimize") {
+        webview_.SetVisible(false);
+        ShowWindow(overlay_.GetHandle(), SW_MINIMIZE);
+    }
     else if (type == L"app.exit") PostQuitMessage(0);
 }
 
@@ -198,7 +207,13 @@ void Application::AddTrayIcon() {
     trayIcon_.uID = 1;
     trayIcon_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
     trayIcon_.uCallbackMessage = kTrayCallbackMessage;
-    trayIcon_.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+    trayIcon_.hIcon = static_cast<HICON>(LoadImageW(
+        instance_, MAKEINTRESOURCEW(kAppIconResourceId), IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
+    if (!trayIcon_.hIcon) {
+        Log(L"tray icon resource loading failed");
+        return;
+    }
     wcscpy_s(trayIcon_.szTip, L"TPN Isle Control HUD");
     if (!Shell_NotifyIconW(NIM_ADD, &trayIcon_)) {
         Log(L"tray icon creation failed");

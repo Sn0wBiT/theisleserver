@@ -21,7 +21,7 @@ public:
     StatusWindow(HINSTANCE instance) {
         INITCOMMONCONTROLSEX controls{sizeof(controls), ICC_PROGRESS_CLASS};
         InitCommonControlsEx(&controls);
-        window_ = CreateWindowExW(WS_EX_TOPMOST, L"STATIC", L"TPN Isle Control HUD Update",
+        window_ = CreateWindowExW(WS_EX_TOPMOST, L"STATIC", L"TPN Isle Update",
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, CW_USEDEFAULT, CW_USEDEFAULT, 520, 180,
             nullptr, nullptr, instance, nullptr);
         label_ = CreateWindowW(L"STATIC", L"Đang kiểm tra cập nhật...", WS_CHILD | WS_VISIBLE,

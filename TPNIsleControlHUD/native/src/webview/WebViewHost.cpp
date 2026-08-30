@@ -304,7 +304,7 @@ struct WebViewHost::Impl {
         if (!self) return DefSubclassProc(hwnd, message, wParam, lParam);
         switch (message) {
         case WM_SIZE:
-            self->owner->Resize();
+            if (wParam != SIZE_MINIMIZED) self->owner->Resize();
             break;
         case WM_SETFOCUS:
             if (self->browser) self->browser->GetHost()->SetFocus(true);
