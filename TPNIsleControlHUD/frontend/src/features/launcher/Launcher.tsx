@@ -5,9 +5,9 @@ import { AuthGate } from "@/features/auth/AuthGate";
 import { request } from "@/services/api";
 import { postNativeMessage } from "@/services/native-bridge";
 import bgImage from "../../assets/images/bg.jpg";
+import { clampLauncherPosition, type LauncherPosition } from "./launcher-position";
 
 type ServerInfo = { address: string; serverIp: string; serverPort: number };
-type LauncherPosition = { x: number; y: number };
 
 export function Launcher() {
   const [server, setServer] = useState<ServerInfo | null>(null);
@@ -38,10 +38,7 @@ export function Launcher() {
       if (!rect) return;
       const current = positionRef.current;
       const baseRect = { left: rect.left - current.x, right: rect.right - current.x, top: rect.top - current.y, bottom: rect.bottom - current.y };
-      const next = {
-        x: Math.min(window.innerWidth - baseRect.right, Math.max(-baseRect.left, current.x)),
-        y: Math.min(window.innerHeight - baseRect.bottom, Math.max(-baseRect.top, current.y)),
-      };
+      const next = clampLauncherPosition(current, baseRect, { width: window.innerWidth, height: window.innerHeight });
       positionRef.current = next;
       setPosition(next);
     };

@@ -28,6 +28,7 @@ add_executable(TPNIsleControlHUD WIN32
   resources/TPNIsleControlHUD.rc
   src/main.cpp
   src/app/Application.cpp
+  src/app/TrayIcon.cpp
   src/cef/CefApplication.cpp
   src/overlay/GameWindowTracker.cpp
   src/overlay/InputManager.cpp

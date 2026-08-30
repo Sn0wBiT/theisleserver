@@ -19,7 +19,8 @@ public:
                     const std::filesystem::path& uiFolder, bool enableDevTools,
                     const std::wstring& apiOrigin, CommandHandler handler, StatusHandler statusHandler);
     void Resize();
-    void SetVisible(bool visible);
+    void SuspendRendering();
+    void ResumeRendering();
     bool Reload();
     void Close();
     void PostJson(const std::wstring& json) const;

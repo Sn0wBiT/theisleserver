@@ -37,7 +37,8 @@ bool InitializeTransparentSurface(HWND window) {
 }
 }
 
-bool OverlayWindow::Create(HINSTANCE instance) {
+bool OverlayWindow::Create(HINSTANCE instance, StateChangeHandler stateChangeHandler) {
+    stateChangeHandler_ = std::move(stateChangeHandler);
     WNDCLASSEXW windowClass{sizeof(windowClass)};
     windowClass.hInstance = instance;
     windowClass.lpfnWndProc = WindowProc;
@@ -57,14 +58,14 @@ bool OverlayWindow::Create(HINSTANCE instance) {
 
 void OverlayWindow::Destroy() { if (hwnd_) DestroyWindow(hwnd_); hwnd_ = nullptr; }
 void OverlayWindow::SetBounds(const RECT& rect) {
-    SetWindowPos(hwnd_, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    SetWindowPos(hwnd_, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOACTIVATE);
 }
 void OverlayWindow::SetLauncherBounds() {
     RECT workArea{};
     SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0);
     SetWindowPos(hwnd_, HWND_TOPMOST, workArea.left, workArea.top,
                  workArea.right - workArea.left, workArea.bottom - workArea.top,
-                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                 SWP_NOACTIVATE);
 }
 void OverlayWindow::SetLauncherMode(bool enabled) {
     if (!hwnd_ || launcherMode_ == enabled) return;
@@ -117,6 +118,13 @@ LRESULT CALLBACK OverlayWindow::WindowProc(HWND hwnd, UINT message, WPARAM wPara
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
     }
     if (message == WM_ERASEBKGND) return 1;
+    if (message == WM_SIZE) {
+        auto* self = reinterpret_cast<OverlayWindow*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+        if (self && self->stateChangeHandler_) {
+            if (wParam == SIZE_MINIMIZED) self->stateChangeHandler_(OverlayWindowState::Minimized);
+            else if (wParam == SIZE_RESTORED) self->stateChangeHandler_(OverlayWindowState::Restored);
+        }
+    }
     if (message == WM_CLOSE) { PostQuitMessage(0); return 0; }
     if (message == WM_DESTROY) { PostQuitMessage(0); return 0; }
     return DefWindowProcW(hwnd, message, wParam, lParam);

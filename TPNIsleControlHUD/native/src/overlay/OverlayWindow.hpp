@@ -1,9 +1,13 @@
 #pragma once
 #include <windows.h>
+#include <functional>
+
+enum class OverlayWindowState { Minimized, Restored };
 
 class OverlayWindow {
 public:
-    bool Create(HINSTANCE instance);
+    using StateChangeHandler = std::function<void(OverlayWindowState)>;
+    bool Create(HINSTANCE instance, StateChangeHandler stateChangeHandler);
     void Destroy();
     void SetBounds(const RECT& rect);
     void SetLauncherBounds();
@@ -20,4 +24,5 @@ private:
     bool interactive_{false};
     bool hudPointerCaptured_{false};
     bool launcherMode_{false};
+    StateChangeHandler stateChangeHandler_;
 };

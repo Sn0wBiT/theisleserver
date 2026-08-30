@@ -7,15 +7,10 @@
 #include <regex>
 #include <shellapi.h>
 #include <sstream>
-#include <windowsx.h>
 
 namespace {
-constexpr UINT kTrayCallbackMessage = WM_APP + 1;
-constexpr UINT kReconnectCommand = 1;
-constexpr UINT kExitCommand = 2;
 constexpr UINT_PTR kTrackerTimer = 1;
 constexpr UINT_PTR kCefPumpTimer = 2;
-constexpr int kAppIconResourceId = 101;
 
 std::filesystem::path ExecutableDirectory() {
     std::wstring path(32768, L'\0');
@@ -35,17 +30,6 @@ int Application::Run() {
     while (GetMessageW(&message, nullptr, 0, 0) > 0) {
         if (message.message == WM_HOTKEY && message.wParam == InputManager::ToggleHotkeyId) {
             SetMode(mode_ == OverlayMode::Hud ? OverlayMode::Interactive : OverlayMode::Hud);
-        } else if (message.message == kTrayCallbackMessage) {
-            const UINT action = LOWORD(message.lParam);
-            if (action == WM_CONTEXTMENU) {
-                ShowTrayMenu(POINT{GET_X_LPARAM(message.wParam), GET_Y_LPARAM(message.wParam)});
-            }
-            else if (action == WM_RBUTTONUP) {
-                POINT cursor{-1, -1};
-                GetCursorPos(&cursor);
-                ShowTrayMenu(cursor);
-            }
-            else if (action == WM_LBUTTONDBLCLK) Reconnect();
         } else if (message.message == WM_TIMER && message.hwnd == overlay_.GetHandle() &&
                    message.wParam == kTrackerTimer) {
             Tick();
@@ -76,7 +60,9 @@ int Application::Run() {
 bool Application::Initialize() {
     Log(L"application start");
     Log(L"config loaded");
-    if (!overlay_.Create(instance_)) { Log(L"overlay creation failed"); return false; }
+    if (!overlay_.Create(instance_, [this](OverlayWindowState state) { HandleOverlayWindowState(state); })) {
+        Log(L"overlay creation failed"); return false;
+    }
     Log(L"overlay created");
     if (!input_.Register(overlay_.GetHandle(), config_.overlayHotkey)) Log(L"hotkey registration failed");
     Log(L"CEF hosting mode: windowless OSR with per-pixel alpha");
@@ -88,7 +74,8 @@ bool Application::Initialize() {
         return false;
     }
     Log(L"CEF initialization started");
-    AddTrayIcon();
+    trayIcon_.Create(instance_, [this] { ShowOrRestore(); }, [this] { Reconnect(); },
+                     [] { PostQuitMessage(0); }, [this](const wchar_t* message) { Log(message); });
     SetTimer(overlay_.GetHandle(), kTrackerTimer, 100, nullptr);
     SetTimer(overlay_.GetHandle(), kCefPumpTimer, 10, nullptr);
     Tick();
@@ -103,16 +90,20 @@ void Application::Tick() {
         gameConnected_ = connected;
         Log(connected ? L"The Isle found" : L"The Isle lost");
         webview_.PostJson(connected ? L"{\"type\":\"game.connected\"}" : L"{\"type\":\"game.disconnected\"}");
-        if (connected && IsIconic(overlay_.GetHandle())) ShowWindow(overlay_.GetHandle(), SW_RESTORE);
+        if (connected && IsIconic(overlay_.GetHandle())) {
+            launcherState_ = LauncherState::Restoring;
+            ShowWindow(overlay_.GetHandle(), SW_RESTORE);
+        }
         SetMode(connected ? OverlayMode::Hud : OverlayMode::Interactive);
     }
+    if (launcherState_ != LauncherState::Shown) return;
     if (IsIconic(overlay_.GetHandle())) return;
     if (!connected) {
         overlay_.SetLauncherMode(true);
         overlay_.SetLauncherBounds();
         overlay_.SetInteractive(true);
         webview_.Resize();
-        webview_.SetVisible(true);
+        if (!IsWindowVisible(overlay_.GetHandle())) webview_.ResumeRendering();
         overlay_.Show();
         LogOverlayState(L"show", L"launcher-ready");
         return;
@@ -130,26 +121,26 @@ void Application::Tick() {
         webview_.PostJson(foreground ? L"{\"type\":\"game.foregroundChanged\",\"foreground\":true}" : L"{\"type\":\"game.foregroundChanged\",\"foreground\":false}");
     }
     if (!tracker_.IsVisible()) {
-        webview_.SetVisible(false);
+        webview_.SuspendRendering();
         overlay_.Hide();
         LogOverlayState(L"hide", L"game-window-hidden");
         return;
     }
     if ((tracker_.IsMinimized)()) {
-        webview_.SetVisible(false);
+        webview_.SuspendRendering();
         overlay_.Hide();
         LogOverlayState(L"hide", L"game-window-minimized");
         return;
     }
     if (!foreground) {
-        webview_.SetVisible(false);
+        webview_.SuspendRendering();
         overlay_.Hide();
         LogOverlayState(L"hide", L"game-not-foreground");
         return;
     }
     overlay_.SetBounds(tracker_.GetClientScreenRect());
     webview_.Resize();
-    webview_.SetVisible(true);
+    if (!IsWindowVisible(overlay_.GetHandle())) webview_.ResumeRendering();
     overlay_.Show();
     LogOverlayState(L"show", L"game-ready");
 }
@@ -184,8 +175,7 @@ void Application::HandleWebCommand(const std::wstring& type, bool value, const s
         Log(result > 32 ? L"The Isle launch requested" : L"The Isle launch request failed");
     }
     else if (type == L"app.minimize") {
-        webview_.SetVisible(false);
-        ShowWindow(overlay_.GetHandle(), SW_MINIMIZE);
+        MinimizeLauncher();
     }
     else if (type == L"app.exit") PostQuitMessage(0);
 }
@@ -200,64 +190,57 @@ void Application::SendFrontendState() {
         : L"{\"type\":\"game.foregroundChanged\",\"foreground\":false}");
 }
 
-void Application::AddTrayIcon() {
-    trayIcon_ = {};
-    trayIcon_.cbSize = sizeof(trayIcon_);
-    trayIcon_.hWnd = overlay_.GetHandle();
-    trayIcon_.uID = 1;
-    trayIcon_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
-    trayIcon_.uCallbackMessage = kTrayCallbackMessage;
-    trayIcon_.hIcon = static_cast<HICON>(LoadImageW(
-        instance_, MAKEINTRESOURCEW(kAppIconResourceId), IMAGE_ICON,
-        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
-    if (!trayIcon_.hIcon) {
-        Log(L"tray icon resource loading failed");
-        return;
+void Application::HandleOverlayWindowState(OverlayWindowState state) {
+    if (state == OverlayWindowState::Minimized && launcherState_ == LauncherState::Minimizing) {
+        launcherState_ = LauncherState::Minimized;
+        Log(L"launcher transition: minimized");
+    } else if (state == OverlayWindowState::Restored &&
+               (launcherState_ == LauncherState::Minimized || launcherState_ == LauncherState::Restoring)) {
+        CompleteLauncherRestore();
     }
-    wcscpy_s(trayIcon_.szTip, L"TPN Isle Control HUD");
-    if (!Shell_NotifyIconW(NIM_ADD, &trayIcon_)) {
-        Log(L"tray icon creation failed");
-        return;
-    }
-    trayIcon_.uVersion = NOTIFYICON_VERSION_4;
-    if (!Shell_NotifyIconW(NIM_SETVERSION, &trayIcon_)) Log(L"tray icon version setup failed");
-    else Log(L"tray icon created");
 }
 
-void Application::RemoveTrayIcon() {
-    if (trayIcon_.hWnd) Shell_NotifyIconW(NIM_DELETE, &trayIcon_);
-    trayIcon_ = {};
+void Application::MinimizeLauncher() {
+    if (gameConnected_ || launcherState_ != LauncherState::Shown) return;
+    launcherState_ = LauncherState::Minimizing;
+    Log(L"launcher transition: minimizing");
+    webview_.SuspendRendering();
+    ShowWindow(overlay_.GetHandle(), SW_MINIMIZE);
 }
 
-void Application::ShowTrayMenu(POINT anchor) {
-    Log(L"tray menu requested");
-    if (anchor.x == -1 && anchor.y == -1 && !GetCursorPos(&anchor)) {
-        Log(L"tray menu anchor lookup failed");
+void Application::ShowOrRestore() {
+    if (!gameConnected_) {
+        if (launcherState_ == LauncherState::Minimized || IsIconic(overlay_.GetHandle())) {
+            launcherState_ = LauncherState::Restoring;
+            Log(L"launcher transition: restoring");
+            ShowWindow(overlay_.GetHandle(), SW_RESTORE);
+        } else {
+            overlay_.Show();
+            SetForegroundWindow(overlay_.GetHandle());
+            SetFocus(overlay_.GetHandle());
+        }
         return;
     }
-    HMENU menu = CreatePopupMenu();
-    if (!menu) { Log(L"tray menu creation failed"); return; }
-    if (!AppendMenuW(menu, MF_STRING, kReconnectCommand, L"Reconnect HUD") ||
-        !AppendMenuW(menu, MF_SEPARATOR, 0, nullptr) ||
-        !AppendMenuW(menu, MF_STRING, kExitCommand, L"Exit")) {
-        Log(L"tray menu item creation failed");
-        DestroyMenu(menu);
+    if (IsIconic(overlay_.GetHandle())) ShowWindow(overlay_.GetHandle(), SW_RESTORE);
+    if (const HWND game = tracker_.GetWindow()) SetForegroundWindow(game);
+}
+
+void Application::CompleteLauncherRestore() {
+    if (gameConnected_) {
+        launcherState_ = LauncherState::Shown;
+        Log(L"launcher transition: restored for game detection");
+        Tick();
         return;
     }
-    const HWND previousForeground = GetForegroundWindow();
-    if (!SetForegroundWindow(overlay_.GetHandle())) Log(L"tray menu owner foreground request failed");
-    SetLastError(ERROR_SUCCESS);
-    const UINT command = TrackPopupMenuEx(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
-                                          anchor.x, anchor.y, overlay_.GetHandle(), nullptr);
-    if (!command && GetLastError() != ERROR_SUCCESS) Log(L"tray menu display failed");
-    DestroyMenu(menu);
-    PostMessageW(overlay_.GetHandle(), WM_NULL, 0, 0);
-    if (!Shell_NotifyIconW(NIM_SETFOCUS, &trayIcon_)) Log(L"tray icon focus restore failed");
-    if (command == kReconnectCommand) Reconnect();
-    else if (command == kExitCommand) PostMessageW(overlay_.GetHandle(), WM_CLOSE, 0, 0);
-    const HWND focusTarget = (previousForeground && IsWindow(previousForeground))
-        ? previousForeground : tracker_.GetWindow();
-    if (focusTarget) SetForegroundWindow(focusTarget);
+    overlay_.SetLauncherBounds();
+    webview_.Resize();
+    webview_.ResumeRendering();
+    overlay_.Show();
+    SetForegroundWindow(overlay_.GetHandle());
+    SetFocus(overlay_.GetHandle());
+    launcherState_ = LauncherState::Shown;
+    Log(L"launcher transition: restored");
+    LogOverlayState(L"show", L"launcher-restored");
 }
 
 void Application::Reconnect() {
@@ -270,7 +253,7 @@ void Application::Shutdown() {
     KillTimer(overlay_.GetHandle(), kTrackerTimer);
     KillTimer(overlay_.GetHandle(), kCefPumpTimer);
     input_.Unregister(overlay_.GetHandle());
-    RemoveTrayIcon();
+    trayIcon_.Destroy();
     webview_.Close();
     overlay_.Destroy();
 }

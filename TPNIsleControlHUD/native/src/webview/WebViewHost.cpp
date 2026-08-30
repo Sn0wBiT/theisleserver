@@ -303,9 +303,6 @@ struct WebViewHost::Impl {
         auto* self = reinterpret_cast<Impl*>(reference);
         if (!self) return DefSubclassProc(hwnd, message, wParam, lParam);
         switch (message) {
-        case WM_SIZE:
-            if (wParam != SIZE_MINIMIZED) self->owner->Resize();
-            break;
         case WM_SETFOCUS:
             if (self->browser) self->browser->GetHost()->SetFocus(true);
             break;
@@ -435,14 +432,25 @@ void WebViewHost::Resize() {
     }
 }
 
-void WebViewHost::SetVisible(bool visible) {
-    if (impl_->visible == visible) return;
-    impl_->visible = visible;
+void WebViewHost::SuspendRendering() {
+    if (!impl_->visible) return;
+    impl_->visible = false;
     if (impl_->browser) {
-        impl_->browser->GetHost()->WasHidden(!visible);
-        if (visible) impl_->browser->GetHost()->Invalidate(PET_VIEW);
+        impl_->browser->GetHost()->WasHidden(true);
     }
-    if (statusHandler_) statusHandler_(std::wstring(L"CEF visibility changed: visible=") + (visible ? L"1" : L"0"));
+    if (statusHandler_) statusHandler_(L"CEF rendering suspended");
+}
+
+void WebViewHost::ResumeRendering() {
+    impl_->visible = true;
+    if (impl_->browser) {
+        auto host = impl_->browser->GetHost();
+        host->WasHidden(false);
+        host->WasResized();
+        host->NotifyScreenInfoChanged();
+        host->Invalidate(PET_VIEW);
+    }
+    if (statusHandler_) statusHandler_(L"CEF rendering resumed and invalidated");
 }
 
 bool WebViewHost::Reload() {

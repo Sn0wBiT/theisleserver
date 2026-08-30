@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/Config.hpp"
+#include "app/TrayIcon.hpp"
 #include "overlay/GameWindowTracker.hpp"
 #include "overlay/InputManager.hpp"
 #include "overlay/OverlayWindow.hpp"
@@ -10,6 +11,7 @@
 #include <shellapi.h>
 
 enum class OverlayMode { Hud, Interactive };
+enum class LauncherState { Shown, Minimizing, Minimized, Restoring };
 
 class Application {
 public:
@@ -20,9 +22,10 @@ private:
     void Tick();
     void SetMode(OverlayMode mode);
     void HandleWebCommand(const std::wstring& type, bool value, const std::wstring& payload);
-    void AddTrayIcon();
-    void RemoveTrayIcon();
-    void ShowTrayMenu(POINT anchor);
+    void HandleOverlayWindowState(OverlayWindowState state);
+    void MinimizeLauncher();
+    void ShowOrRestore();
+    void CompleteLauncherRestore();
     void SendFrontendState();
     void Reconnect();
     void Shutdown();
@@ -40,5 +43,6 @@ private:
     bool gameConnected_{false};
     bool gameForeground_{false};
     std::wstring lastOverlayDiagnostic_;
-    NOTIFYICONDATAW trayIcon_{};
+    TrayIcon trayIcon_;
+    LauncherState launcherState_{LauncherState::Shown};
 };
