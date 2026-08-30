@@ -22,8 +22,8 @@ export function Launcher() {
   useEffect(() => {
     let alive = true;
     request<ServerInfo>("/api/game/server")
-      .then((result) => { if (alive) { setServer(result); setMessage("Server ready"); } })
-      .catch(() => { if (alive) setMessage("Server address unavailable. Check the launcher configuration."); });
+      .then((result) => { if (alive) { setServer(result); setMessage("Máy chủ sẵn sàng"); } })
+      .catch(() => { if (alive) setMessage("Máy chủ không khả dụng. Vui lòng quay lại trong ít phút."); });
     return () => { alive = false; };
   }, []);
 
