@@ -39,6 +39,7 @@ private:
     OverlayMode mode_{OverlayMode::Hud};
     bool gameConnected_{false};
     bool gameForeground_{false};
+    bool voiceBindingCapture_{false};
     std::wstring lastOverlayDiagnostic_;
     NOTIFYICONDATAW trayIcon_{};
 };

@@ -9,7 +9,8 @@ export type NativeEvent =
   | { type: "game.disconnected" }
   | { type: "game.foregroundChanged"; foreground: boolean }
   | { type: "app.shuttingDown" }
-  | { type: "app.config"; apiUrl: string };
+  | { type: "app.config"; apiUrl: string }
+  | { type: "voice.pushToTalkChanged"; active: boolean };
 
 export function postNativeMessage(message: object) {
   window.chrome?.webview?.postMessage(message);
@@ -39,6 +40,7 @@ export function handleNativeEvent(message: NativeEvent) {
     try { setApiUrl(message.apiUrl); store.setRuntimeState(true); }
     catch { store.setRuntimeState(false, "The HUD runtime API origin is invalid."); }
   }
+  if (message.type === "voice.pushToTalkChanged") window.dispatchEvent(new CustomEvent("tpn-voice-ptt", { detail: message.active }));
 }
 
 export function bindNativeBridge() {

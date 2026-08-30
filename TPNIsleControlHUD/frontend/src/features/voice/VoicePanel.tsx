@@ -1,0 +1,14 @@
+import { useVoice } from "./VoiceProvider";
+import { postNativeMessage } from "@/services/native-bridge";
+
+export function VoicePanel() { const voice = useVoice(); const s = voice.settings; const update = (patch: Partial<typeof s>) => voice.setSettings({ ...s, ...patch }); const inputs = voice.devices.filter((device) => device.kind === "audioinput"); const outputs = voice.devices.filter((device) => device.kind === "audiooutput");
+  return <section className="voice-panel hud-panel pointer-events-auto"><header><h2>Proximity Voice</h2><span>{voice.connected ? "CONNECTED" : "OFFLINE"}</span></header>
+    <label><input type="checkbox" checked={s.enabled} onChange={(event) => update({ enabled: event.target.checked })} /> Enable voice</label>
+    <label>Push to talk <input value={s.pushToTalkKey} maxLength={12} onFocus={() => postNativeMessage({ type: "voice.bindingCapture", value: true })} onBlur={() => postNativeMessage({ type: "voice.bindingCapture", value: false })} onChange={(event) => update({ pushToTalkKey: event.target.value.toUpperCase() })} /></label>
+    <label>Input <select value={s.inputDeviceId} onChange={(event) => update({ inputDeviceId: event.target.value })}><option value="default">Windows default</option>{inputs.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || "Microphone"}</option>)}</select></label>
+    <label>Output <select value={s.outputDeviceId} onChange={(event) => update({ outputDeviceId: event.target.value })}><option value="default">Windows default</option>{outputs.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || "Speakers"}</option>)}</select></label>
+    <label>Input gain <input type="range" min="0" max="2" step=".05" value={s.inputGain} onChange={(event) => update({ inputGain: Number(event.target.value) })} /></label><label>Output volume <input type="range" min="0" max="1" step=".05" value={s.outputVolume} onChange={(event) => update({ outputVolume: Number(event.target.value) })} /></label>
+    {(["echoCancellation", "noiseSuppression", "autoGainControl"] as const).map((key) => <label key={key}><input type="checkbox" checked={s[key]} onChange={(event) => update({ [key]: event.target.checked })} /> {key}</label>)}
+    <button onClick={() => voice.testMicrophone().catch(() => undefined)}>Test microphone</button>{voice.permissionError && <p className="text-rust">{voice.permissionError}</p>}
+    <h3>Nearby players</h3>{voice.proximity?.audibleSpeakers.length ? voice.proximity.audibleSpeakers.map((player) => <label key={player.identity}><input type="checkbox" checked={!s.mutedSteamIds.includes(player.identity)} onChange={() => update({ mutedSteamIds: s.mutedSteamIds.includes(player.identity) ? s.mutedSteamIds.filter((id) => id !== player.identity) : [...s.mutedSteamIds, player.identity] })} /> {player.displayName}</label>) : <p>No players in range</p>}
+  </section>; }

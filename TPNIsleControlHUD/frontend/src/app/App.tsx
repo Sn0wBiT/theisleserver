@@ -8,6 +8,7 @@ import { AuthGate } from "@/features/auth/AuthGate";
 import { PositionStreamProvider, usePositionStream } from "@/features/minimap/usePositionStream";
 import { isUiDevelopment } from "@/config/ui-development";
 import { Launcher } from "@/features/launcher/Launcher";
+import { VoiceProvider } from "@/features/voice/VoiceProvider";
 
 function AuthenticatedHud() {
   const { playerPresent, status } = usePositionStream();
@@ -17,10 +18,10 @@ function AuthenticatedHud() {
     return <div className="absolute inset-0 grid place-items-center"><section className="hud-panel border border-stone p-5 text-sm text-bone">{status === "unauthorized" ? "Your session expired. Sign in again." : "Waiting for a fresh in-game position…"}</section></div>;
   }
   return (
-    <>
+    <VoiceProvider playerPresent={playerPresent}>
       <PanelLayer />
       <HudLayer />
-    </>
+    </VoiceProvider>
   );
 }
 

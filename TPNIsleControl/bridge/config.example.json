@@ -4,6 +4,7 @@
   "apiToken": "CHANGE_ME",
   "gameToken": "",
   "gameTransport": "auto",
+  "gameServerId": "gateway-1",
   "maxPendingHttpCommands": 1000,
   "databasePoolSize": 10,
   "snapshotFlushMs": 5000,

@@ -68,15 +68,17 @@ void OverlayWindow::SetLauncherBounds() {
 }
 void OverlayWindow::SetLauncherMode(bool enabled) {
     if (!hwnd_) return;
-    auto styles = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
+    const auto styles = GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
+    auto updatedStyles = styles;
     if (enabled) {
-        styles &= ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
-        styles |= WS_EX_APPWINDOW;
+        updatedStyles &= ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+        updatedStyles |= WS_EX_APPWINDOW;
     } else {
-        styles |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
-        styles &= ~WS_EX_APPWINDOW;
+        updatedStyles |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
+        updatedStyles &= ~WS_EX_APPWINDOW;
     }
-    SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, styles);
+    if (updatedStyles == styles) return;
+    SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, updatedStyles);
     SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED | SWP_NOACTIVATE);
 }

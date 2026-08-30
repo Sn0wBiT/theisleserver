@@ -17,3 +17,8 @@ TheIsle/Binaries/Win64/*
 !TheIsle/Binaries/Win64/ue4ss/**
 /TheIsle/Binaries/Win64/ue4ss/*.log
 tpn-dino/public/hud/**
+
+# Host-only runtime configuration and installed LiveKit binaries.
+# These contain secrets and deployment artifacts and must never be committed.
+/config/
+/services/livekit-*/

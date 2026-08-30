@@ -6,6 +6,7 @@
 #include "include/cef_context_menu_handler.h"
 #include "include/cef_life_span_handler.h"
 #include "include/cef_load_handler.h"
+#include "include/cef_permission_handler.h"
 #include "include/cef_parser.h"
 #include "include/cef_process_message.h"
 #include "include/cef_render_handler.h"
@@ -101,6 +102,7 @@ struct WebViewHost::Impl {
                          public CefContextMenuHandler,
                          public CefLifeSpanHandler,
                          public CefLoadHandler,
+                         public CefPermissionHandler,
                          public CefRenderHandler {
     public:
         explicit Client(Impl* impl) : impl_(impl) {}
@@ -108,7 +110,22 @@ struct WebViewHost::Impl {
         CefRefPtr<CefContextMenuHandler> GetContextMenuHandler() override { return this; }
         CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() override { return this; }
         CefRefPtr<CefLoadHandler> GetLoadHandler() override { return this; }
+        CefRefPtr<CefPermissionHandler> GetPermissionHandler() override { return this; }
         CefRefPtr<CefRenderHandler> GetRenderHandler() override { return this; }
+
+        bool OnRequestMediaAccessPermission(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
+                                            const CefString& requestingOrigin,
+                                            uint32_t requestedPermissions,
+                                            CefRefPtr<CefMediaAccessCallback> callback) override {
+            const std::wstring origin = requestingOrigin.ToWString();
+            const bool trusted = origin == L"http://dino.tpnrp.local" ||
+                (impl_->owner->development_ && origin == impl_->owner->apiOrigin_) ||
+                (impl_->owner->development_ && origin.rfind(L"http://localhost:", 0) == 0);
+            const uint32_t audio = CEF_MEDIA_PERMISSION_DEVICE_AUDIO_CAPTURE;
+            if (trusted && requestedPermissions == audio) callback->Continue(audio);
+            else callback->Cancel();
+            return true;
+        }
 
         void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
             impl_->browser = browser;
@@ -522,6 +539,12 @@ void WebViewHost::HandleMessage(const std::wstring& json) {
         std::wsmatch match;
         if (std::regex_search(json, match, addressPattern) && commandHandler_)
             commandHandler_(L"app.launchGame", false, match[1].str());
+    } else if (hasType(L"voice.setPushToTalkKey")) {
+        const std::wregex keyPattern(LR"regex("key"\s*:\s*"([A-Za-z0-9]{1,12})")regex");
+        std::wsmatch match;
+        if (std::regex_search(json, match, keyPattern) && commandHandler_) commandHandler_(L"voice.setPushToTalkKey", false, match[1].str());
+    } else if (hasType(L"voice.bindingCapture")) {
+        if (commandHandler_) commandHandler_(L"voice.bindingCapture", json.find(L"\"value\":true") != std::wstring::npos, L"");
     } else if (hasType(L"app.minimize")) {
         if (commandHandler_) commandHandler_(L"app.minimize", false, L"");
     } else if (hasType(L"app.exit")) {

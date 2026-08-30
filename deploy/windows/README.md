@@ -47,6 +47,16 @@ startup tasks; the build/copy step itself does not require elevation.
 The bridge and Next.js bind to loopback. Expose only the reverse proxy (for
 example Caddy) on ports 80/443; do not open bridge port 31990 publicly.
 
+## Proximity voice (release-gated)
+
+1. Create `config\livekit.yaml` from `livekit.yaml.example`, generate a unique API key/secret, restrict the file ACL to Administrators and SYSTEM, and copy the same values to `tpn-dino.env`. Never place the secret in the HUD package.
+2. Point the voice DNS name at the public host. Add `Caddyfile.voice.example` to Caddy and verify its trusted certificate before allowing clients.
+3. Run `Install-LiveKit.ps1`. It pins v1.9.12, downloads the release's `checksums.txt`, verifies SHA-256 before extraction, and registers a SYSTEM startup task with restart-on-failure.
+4. Forward TCP 7881 and 5349 plus UDP 50000-50150 to the host. Allow TCP 443 for signaling through Caddy. Keep 7880 private. If TURN/TLS termination is moved to Caddy, update the LiveKit TURN configuration consistently.
+5. Rotate LiveKit logs, monitor CPU/memory, WebRTC packet loss and jitter, and test startup with `Restart-ScheduledTask -TaskName TPN-LiveKit` after every upgrade.
+
+No egress or recording component is installed. Before release, run 150 clients with 10 Hz telemetry and realistic overlapping speech on this exact host. Reject release if game tick stability, session continuity, packet loss/jitter, subscription permissions, or TURN fallback are unacceptable. In that case move LiveKit unchanged to a dedicated Linux VM, update `LIVEKIT_WS_URL`, DNS/NAT, and firewall rules, then repeat the load test. LiveKit's production guidance requires trusted TLS and explicit signaling/WebRTC/TURN exposure; see https://docs.livekit.io/transport/self-hosting/deployment/ and https://docs.livekit.io/transport/self-hosting/ports-firewall/.
+
 ## Storage choices
 
 - Keep one Node runtime and use it for both processes.

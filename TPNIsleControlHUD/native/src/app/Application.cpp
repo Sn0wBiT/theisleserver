@@ -1,5 +1,7 @@
 #include "app/Application.hpp"
 
+#include "../../resources/resource.h"
+
 #include "include/cef_app.h"
 
 #include <cstdint>
@@ -51,6 +53,10 @@ int Application::Run() {
             if (input_.PollFactionPressed(gameConnected_ && tracker_.IsForeground())) {
                 webview_.PostJson(L"{\"type\":\"overlay.togglePanel\",\"panel\":\"gang\"}");
             }
+            const bool voiceAllowed = gameConnected_ && tracker_.IsForeground() && mode_ == OverlayMode::Hud && !voiceBindingCapture_;
+            if (const auto transition = input_.PollVoiceTransition(voiceAllowed)) {
+                webview_.PostJson(*transition ? L"{\"type\":\"voice.pushToTalkChanged\",\"active\":true}" : L"{\"type\":\"voice.pushToTalkChanged\",\"active\":false}");
+            }
             POINT cursor{};
             bool capturePointer = false;
             if (mode_ == OverlayMode::Hud && GetCursorPos(&cursor) &&
@@ -90,7 +96,6 @@ bool Application::Initialize() {
 }
 
 void Application::Tick() {
-    overlay_.SetInteractive(mode_ == OverlayMode::Interactive);
     if (tracker_.IsFound()) tracker_.Update(); else tracker_.Find();
     const bool connected = tracker_.IsFound();
     if (connected != gameConnected_) {
@@ -100,11 +105,11 @@ void Application::Tick() {
         if (connected && IsIconic(overlay_.GetHandle())) ShowWindow(overlay_.GetHandle(), SW_RESTORE);
         SetMode(connected ? OverlayMode::Hud : OverlayMode::Interactive);
     }
+    overlay_.SetInteractive(!connected || mode_ == OverlayMode::Interactive);
     if (IsIconic(overlay_.GetHandle())) return;
     if (!connected) {
         overlay_.SetLauncherMode(true);
         overlay_.SetLauncherBounds();
-        overlay_.SetInteractive(true);
         webview_.Resize();
         webview_.SetVisible(true);
         overlay_.Show();
@@ -153,6 +158,9 @@ void Application::SetMode(OverlayMode mode) {
     mode_ = mode;
     Log(mode == OverlayMode::Interactive ? L"overlay mode changed: interactive" : L"overlay mode changed: hud");
     overlay_.SetInteractive(mode == OverlayMode::Interactive);
+    if (mode == OverlayMode::Interactive) {
+        if (const auto stopped = input_.ForceVoiceStop()) webview_.PostJson(L"{\"type\":\"voice.pushToTalkChanged\",\"active\":false}");
+    }
     webview_.PostJson(mode == OverlayMode::Interactive
         ? L"{\"type\":\"overlay.modeChanged\",\"mode\":\"interactive\"}"
         : L"{\"type\":\"overlay.modeChanged\",\"mode\":\"hud\"}");
@@ -167,6 +175,14 @@ void Application::HandleWebCommand(const std::wstring& type, bool value, const s
         webview_.PostJson(L"{\"type\":\"overlay.openPanel\",\"panel\":\"minimap\"}");
     }
     else if (type == L"app.frontendReady") SendFrontendState();
+    else if (type == L"voice.setPushToTalkKey") {
+        if (const auto stopped = input_.ForceVoiceStop()) webview_.PostJson(L"{\"type\":\"voice.pushToTalkChanged\",\"active\":false}");
+        if (!input_.SetVoiceKey(payload)) Log(L"unsupported voice push-to-talk binding");
+    }
+    else if (type == L"voice.bindingCapture") {
+        voiceBindingCapture_ = value;
+        if (value) { if (const auto stopped = input_.ForceVoiceStop()) webview_.PostJson(L"{\"type\":\"voice.pushToTalkChanged\",\"active\":false}"); }
+    }
     else if (type == L"app.launchGame") {
         static const std::wregex addressPattern(LR"(^[A-Za-z0-9.-]+:[0-9]{1,5}$)");
         if (!std::regex_match(payload, addressPattern)) {
@@ -198,7 +214,11 @@ void Application::AddTrayIcon() {
     trayIcon_.uID = 1;
     trayIcon_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
     trayIcon_.uCallbackMessage = kTrayCallbackMessage;
-    trayIcon_.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+    trayIcon_.hIcon = LoadIconW(instance_, MAKEINTRESOURCEW(IDI_APP_ICON));
+    if (!trayIcon_.hIcon) {
+        trayIcon_.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+        Log(L"HUD tray icon resource load failed; using the Windows default icon");
+    }
     wcscpy_s(trayIcon_.szTip, L"TPN Isle Control HUD");
     if (!Shell_NotifyIconW(NIM_ADD, &trayIcon_)) {
         Log(L"tray icon creation failed");
@@ -252,6 +272,7 @@ void Application::Reconnect() {
 void Application::Shutdown() {
     Log(L"shutdown");
     webview_.PostJson(L"{\"type\":\"app.shuttingDown\"}");
+    if (const auto stopped = input_.ForceVoiceStop()) webview_.PostJson(L"{\"type\":\"voice.pushToTalkChanged\",\"active\":false}");
     KillTimer(overlay_.GetHandle(), kTrackerTimer);
     KillTimer(overlay_.GetHandle(), kCefPumpTimer);
     input_.Unregister(overlay_.GetHandle());

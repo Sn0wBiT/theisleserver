@@ -9,6 +9,7 @@ import { formatQuestMessages } from "./quest-message.js";
 import { formatHelpMessage } from "./help-message.js";
 import { completeNdjsonChunk } from "./ndjson.js";
 import { parseGameSync, PendingCommandQueue } from "./game-sync.js";
+import { VoiceCoordinator } from "./voice-coordinator.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bridgeDir = path.resolve(here, "..");
@@ -65,6 +66,7 @@ const addrToSteam = new Map(); // pawn address -> steam
 const recentDamage = new Map(); // victim address -> { attackerAddr, ts }
 const recentAiDeaths = new Map(); // AI address -> death timestamp
 const hudPresence = new Map(); // steam -> latest authenticated HUD heartbeat
+const voiceCoordinator = new VoiceCoordinator({ gameServerId: String(config.gameServerId || "gateway-1") });
 const bridgeStartedAt = Date.now();
 const hudPresenceMaxAgeMs = 15_000;
 const bridgeStartupGraceMs = 20_000;
@@ -200,18 +202,35 @@ function processPosition(update) {
   const x = Number(update?.pos?.x);
   const y = Number(update?.pos?.y);
   const z = Number(update?.pos?.z);
-  if (!steam || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return;
+  const pitch = Number(update?.rotation?.pitch);
+  const yaw = Number(update?.rotation?.yaw);
+  const roll = Number(update?.rotation?.roll);
+  const gameServerId = String(update?.gameServerId || config.gameServerId || "gateway-1");
+  if (!steam || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z) ||
+      !Number.isFinite(pitch) || !Number.isFinite(yaw) || !Number.isFinite(roll)) return;
 
   const updatedAt = Date.now();
   livePlayers.set(steam, {
     ...(livePlayers.get(steam) || { steam }),
     pos: { x, y, z },
+    rotation: { pitch, yaw, roll },
+    gameServerId,
     positionUpdatedAt: updatedAt
   });
 
   store.savePosition(steam, { dinosaurId: update.dinosaurId || livePlayers.get(steam)?.dinosaurId || "legacy", x, y, z }, updatedAt);
 
   publishPosition(steam, { x, y, z }, updatedAt);
+  voiceCoordinator.update(steam, { pos: { x, y, z }, rotation: { pitch, yaw, roll }, gameServerId, updatedAt });
+}
+
+function streamVoice(req, res, steamId) {
+  res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-store, must-revalidate", connection: "keep-alive", "x-accel-buffering": "no" });
+  res.flushHeaders();
+  const unsubscribe = voiceCoordinator.subscribe(steamId, res);
+  const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
+  const cleanup = () => { clearInterval(heartbeat); unsubscribe(); };
+  req.once("close", cleanup); res.once("close", cleanup);
 }
 
 function positionEvent(steamId, position, updatedAt) {
@@ -649,6 +668,21 @@ async function handleRequest(req, res) {
     if (!/^\d{17}$/.test(steam)) return send(res, 400, { ok: false, error: "invalid-steam-id" });
     hudPresence.set(steam, Date.now());
     return send(res, 200, { ok: true });
+  }
+
+  const voiceEligibility = url.pathname.match(/^\/voice\/([^/]+)\/eligibility$/);
+  if (req.method === "GET" && voiceEligibility) {
+    const steamId = decodeURIComponent(voiceEligibility[1]);
+    if (!/^\d{17}$/.test(steamId)) return send(res, 400, { ok: false, error: "invalid-steam-id" });
+    const state = voiceCoordinator.stateFor(steamId);
+    return send(res, state.ready ? 200 : 409, { eligible: state.ready, stale: state.stale, gameServerId: state.gameServerId });
+  }
+
+  const voiceStream = url.pathname.match(/^\/voice\/([^/]+)\/stream$/);
+  if (req.method === "GET" && voiceStream) {
+    const steamId = decodeURIComponent(voiceStream[1]);
+    if (!/^\d{17}$/.test(steamId)) return send(res, 400, { ok: false, error: "invalid-steam-id" });
+    return streamVoice(req, res, steamId);
   }
 
   if (req.method === "GET" && url.pathname === "/players") {

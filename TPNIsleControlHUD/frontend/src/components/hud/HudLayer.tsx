@@ -6,6 +6,7 @@ import { usePositionStream } from "@/features/minimap/usePositionStream";
 import { cn } from "@/lib/utils";
 import { postNativeMessage } from "@/services/native-bridge";
 import { useOverlayStore } from "@/stores/overlay.store";
+import { VoiceHud } from "@/features/voice/VoiceHud";
 
 export function HudLayer() {
   const { dinosaur, playerPresent } = usePositionStream();
@@ -96,6 +97,7 @@ export function HudLayer() {
           <CompactMinimap />
         </div>
       )}
+      <VoiceHud />
     </div>
   );
 }

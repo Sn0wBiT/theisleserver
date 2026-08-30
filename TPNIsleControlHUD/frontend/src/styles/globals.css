@@ -271,3 +271,10 @@ button { font: inherit; cursor: pointer; }
     @apply font-sans;
   }
 }
+.voice-status { position: absolute; right: 24px; bottom: 24px; z-index: 80; display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid var(--color-border-default); border-radius: 50%; background: rgb(5 29 25 / .94); color: var(--color-ash); box-shadow: var(--shadow-hud); }
+.voice-status--ready { color: var(--color-control-active); border-color: rgb(107 184 163 / .72); }
+.voice-status--transmitting { color: var(--color-amber); animation: marker-pulse 1s ease-out infinite; box-shadow: 0 0 18px rgb(214 195 107 / .55); }
+.voice-panel { display: grid; width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); gap: 12px; overflow: auto; padding: 20px; color: var(--color-bone); }
+.voice-panel header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 10px; }
+.voice-panel label { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.voice-panel input:not([type=checkbox]):not([type=range]), .voice-panel select, .voice-panel button { border: 1px solid var(--color-border-default); background: rgb(5 29 25 / .9); padding: 7px 9px; color: inherit; }
