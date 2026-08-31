@@ -52,7 +52,6 @@ type ApiError = Error & { status: number }
 
 export type SteamAuthProps = {
   children?: ReactNode
-  embedded?: boolean
   onAuthenticated?: (player: SteamPlayer) => void
 }
 
@@ -188,7 +187,6 @@ function openSteamLogin(browserCode: string) {
 
 export function SteamAuth({
   children,
-  embedded = false,
   onAuthenticated,
 }: SteamAuthProps) {
   const [state, setState] = useState<AuthState>(() =>
@@ -331,8 +329,8 @@ export function SteamAuth({
         </CardTitle>
         <CardDescription>
           {waiting
-            ? "Steam đã được mở trong một cửa sổ riêng. Quay lại đây sau khi bạn xác nhận tài khoản."
-            : "Đăng nhập bằng Steam để đồng bộ nhân vật, nhiệm vụ và dữ liệu máy chủ của bạn."}
+              ? "Steam đã được mở trong một cửa sổ riêng. Quay lại đây sau khi bạn xác nhận tài khoản."
+              : "Đăng nhập bằng Steam để đồng bộ nhân vật, nhiệm vụ và dữ liệu máy chủ của bạn."}
         </CardDescription>
       </CardHeader>
 
