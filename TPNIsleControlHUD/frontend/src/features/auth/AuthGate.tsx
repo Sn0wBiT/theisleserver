@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getRefreshToken, sharedRefresh, storeSession, type AuthResult, type Player } from "@/services/auth";
 import { rawRequest, request } from "@/services/api";
 import { openLogin } from "@/services/native-bridge";
+import { Button } from "@/components/ui/button";
 
 
 type State = "restoring" | "signedOut" | "starting" | "waiting" | "authenticated" | "error";
@@ -80,8 +81,8 @@ export function AuthGate({ children, embedded = false }: { children: React.React
           <p className="text-xs text-ash">Đang khôi phục phiên đăng nhập…</p>
         )}
         {state === "waiting" ? (
-          <button className="text-xs text-ash underline" onClick={cancel}>Hủy</button>
-        ) : state !== "restoring" && <button className="border border-stone px-4 py-2 text-xs text-bone" disabled={state === "starting"} onClick={login}>{state === "starting" ? "Đang bắt đầu…" : "Đăng nhập với Steam"}</button>}
+          <Button className="text-xs text-ash underline" onClick={cancel}>Hủy</Button>
+        ) : state !== "restoring" && <Button disabled={state === "starting"} onClick={login}>{state === "starting" ? "Đang bắt đầu…" : "Đăng nhập với Steam"}</Button>}
       </section>
     </div>
   )
