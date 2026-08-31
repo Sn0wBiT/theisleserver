@@ -2,3 +2,6 @@
 /release/
 /frontend/dist/
 /frontend/node_modules/
+/isle-hud/dist/
+node_modules/
+.vite/

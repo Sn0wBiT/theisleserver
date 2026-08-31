@@ -325,86 +325,63 @@ export function SteamAuth({
   const busy = state === "restoring" || state === "starting"
 
   return (
-    <main
-      className={
-        embedded
-          ? "grid min-h-96 place-items-center p-6"
-          : "relative grid min-h-full place-items-center overflow-hidden bg-background p-6"
-      }
-    >
-      {!embedded && (
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-32 -left-28 size-80 rounded-full bg-primary/10 blur-3xl" />
-          <div className="absolute -right-24 -bottom-40 size-96 rounded-full bg-muted blur-3xl" />
-          <div className="absolute inset-x-0 top-0 h-px bg-border" />
-        </div>
-      )}
+    <Card className="relative w-full max-w-md">
+      <CardHeader>
+        <CardTitle>
+          {waiting ? "Hoàn tất trong trình duyệt" : "Kết nối The Isle HUD"}
+        </CardTitle>
+        <CardDescription>
+          {waiting
+            ? "Steam đã được mở trong một cửa sổ riêng. Quay lại đây sau khi bạn xác nhận tài khoản."
+            : "Đăng nhập bằng Steam để đồng bộ nhân vật, nhiệm vụ và dữ liệu máy chủ của bạn."}
+        </CardDescription>
+      </CardHeader>
 
-      <Card className="relative w-full max-w-md">
-        <CardHeader>
-          <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <Gamepad2Icon aria-hidden="true" />
+      <CardContent className="flex flex-col gap-4">
+        {message && (
+          <Alert variant="destructive">
+            <TriangleAlertIcon aria-hidden="true" />
+            <AlertTitle>Không thể đăng nhập</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        )}
+
+        {state === "restoring" && (
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <Spinner />
+            <span>Đang khôi phục phiên đăng nhập…</span>
           </div>
-          <CardTitle>
-            {waiting ? "Hoàn tất trong trình duyệt" : "Kết nối The Isle HUD"}
-          </CardTitle>
-          <CardDescription>
-            {waiting
-              ? "Steam đã được mở trong một cửa sổ riêng. Quay lại đây sau khi bạn xác nhận tài khoản."
-              : "Đăng nhập bằng Steam để đồng bộ nhân vật, nhiệm vụ và dữ liệu máy chủ của bạn."}
-          </CardDescription>
-        </CardHeader>
+        )}
 
-        <CardContent className="flex flex-col gap-4">
-          {message && (
-            <Alert variant="destructive">
-              <TriangleAlertIcon aria-hidden="true" />
-              <AlertTitle>Không thể đăng nhập</AlertTitle>
-              <AlertDescription>{message}</AlertDescription>
-            </Alert>
-          )}
+        {waiting && (
+          <Alert>
+            <ExternalLinkIcon aria-hidden="true" />
+            <AlertTitle>Đang chờ Steam</AlertTitle>
+            <AlertDescription>
+              Cửa sổ này sẽ tự động tiếp tục ngay khi xác thực hoàn tất.
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
 
-          {state === "restoring" && (
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Spinner />
-              <span>Đang khôi phục phiên đăng nhập…</span>
-            </div>
-          )}
+      <CardFooter className="flex-col items-stretch gap-3">
+        {!waiting && state !== "restoring" && (
+          <Button size="lg" disabled={busy} onClick={() => void login()}>
+            {state === "starting" ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <ShieldCheckIcon data-icon="inline-start" />
+            )}
+            {state === "starting" ? "Đang bắt đầu…" : "Đăng nhập với Steam"}
+          </Button>
+        )}
 
-          {waiting && (
-            <Alert>
-              <ExternalLinkIcon aria-hidden="true" />
-              <AlertTitle>Đang chờ Steam</AlertTitle>
-              <AlertDescription>
-                Cửa sổ này sẽ tự động tiếp tục ngay khi xác thực hoàn tất.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-
-        <CardFooter className="flex-col items-stretch gap-3">
-          {!waiting && state !== "restoring" && (
-            <Button size="lg" disabled={busy} onClick={() => void login()}>
-              {state === "starting" ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <ShieldCheckIcon data-icon="inline-start" />
-              )}
-              {state === "starting" ? "Đang bắt đầu…" : "Đăng nhập với Steam"}
-            </Button>
-          )}
-
-          {waiting && (
-            <Button variant="ghost" onClick={() => void cancel()}>
-              Hủy đăng nhập
-            </Button>
-          )}
-
-          <p className="text-center text-xs text-muted-foreground">
-            TPN Isle Control chỉ nhận mã định danh công khai từ Steam.
-          </p>
-        </CardFooter>
-      </Card>
-    </main>
+        {waiting && (
+          <Button variant="ghost" onClick={() => void cancel()}>
+            Hủy đăng nhập
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
   )
 }
