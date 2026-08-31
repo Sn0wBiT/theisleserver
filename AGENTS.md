@@ -1,44 +1,32 @@
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+# Repository Guidelines
 
-This project is indexed by GitNexus as **theisleserver** (5148 symbols, 14600 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+## Project Structure & Module Organization
 
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+`tpn-dino/` is the Next.js 16 web app and API; routes live under `app/`, shared logic under `lib/`, and assets under `public/`. `TPNIsleControl/bridge/` contains the Node.js/PostgreSQL bridge (`src/`, `test/`, and `sql/`). The UE4SS Lua mod lives under `TheIsle/Binaries/Win64/ue4ss/`. `TPNIsleControlHUD/frontend/` is the React/Vite overlay, while `TPNIsleControlHUD/native/` is its Win32/CEF host. Deployment scripts are in `deploy/windows/`; plans are in `docs/`.
 
-## Always Do
+## Build, Test, and Development Commands
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
-- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
+Run commands from the relevant package directory:
 
-## Never Do
+- `cd tpn-dino && npm ci && npm run dev` starts the web app at `localhost:3000`.
+- `cd tpn-dino && npm test && npm run lint && npm run build` validates the Next.js service.
+- `cd TPNIsleControl/bridge && npm ci && npm test` runs Node's built-in test suite; `npm start` launches the bridge.
+- `cd TPNIsleControlHUD/frontend && npm ci && npm run dev:ui` opens the HUD with development mock data.
+- `cd TPNIsleControlHUD/frontend && npm test && npm run lint && npm run build` validates and bundles the overlay.
+- From Visual Studio Developer PowerShell, run `TPNIsleControlHUD/scripts/build.ps1` for a complete native HUD build. Build the native mod with CMake as documented in `TPNIsleControl/native/README.md`.
 
-- NEVER edit a function, class, or method without first running `impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit changes without running `detect_changes()` to check affected scope.
+## Coding Style & Naming Conventions
 
-## Resources
+Use two-space indentation in TypeScript/JavaScript, ES modules, double quotes, and configured trailing commas. React components use PascalCase; functions, variables, and hooks use camelCase; route folders use lowercase URL segments. C++ types use PascalCase, with declarations in `.hpp` and implementations in `.cpp`. Run ESLint before submitting.
 
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/theisleserver/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/theisleserver/clusters` | All functional areas |
-| `gitnexus://repo/theisleserver/processes` | All execution flows |
-| `gitnexus://repo/theisleserver/process/{name}` | Step-by-step execution trace |
+## Testing Guidelines
 
-## CLI
+Vitest covers `tpn-dino` and the HUD frontend; the bridge uses `node:test`. Name tests `*.test.ts`, `*.test.tsx`, or `*.test.js`, colocating frontend/API tests near their subject and bridge tests under `bridge/test/`. Add focused regression coverage for behavior changes. Integration tests requiring PostgreSQL may depend on local environment configuration.
 
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+## Commit & Pull Request Guidelines
 
-<!-- gitnexus:end -->
+Recent history generally follows Conventional Commit prefixes such as `feat:`, `fix:`, and `refactor:`. Keep subjects imperative and scoped to one change. Pull requests should explain behavior and configuration impacts, list validation commands, link relevant issues or plans, and include screenshots for HUD or web UI changes. Never commit secrets from `.env.local`, `bridge/config.json`, tokens, database URLs, or generated runtime data.
+
+## Agent-Specific Instructions
+
+Use GitNexus before code edits: run upstream impact analysis for every changed symbol, warn before HIGH or CRITICAL-risk edits, and run `detect_changes` before committing. Do not use text replacement to rename symbols; use graph-aware rename tooling.
