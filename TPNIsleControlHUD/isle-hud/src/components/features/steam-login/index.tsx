@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
   ExternalLinkIcon,
-  Gamepad2Icon,
   ShieldCheckIcon,
   TriangleAlertIcon,
 } from "lucide-react"

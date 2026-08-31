@@ -6,8 +6,8 @@ function App() {
 
   return (
     <>
-     {/* <Launcher /> */}
-     <SteamAuth />
+     <Launcher />
+     {/* <SteamAuth /> */}
      <Toaster />
     </>
   )
