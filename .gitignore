@@ -2,11 +2,15 @@ TheIsleServer.exe
 steamapps/*
 Engine/*
 node_modules
+.DS_Store
 TheIsle/*
 **.log
 docs/private
 /TPNIsleControl/native/build/
 TPNIsleControl\bridge\data\state.json
+/TPNIsleControl/bridge/config.json
+/TPNIsleControlHUD/frontend/.env*
+!/TPNIsleControlHUD/frontend/.env.example
 .gitnexus
 # Includes
 !TheIsle/Binaries/
@@ -16,4 +20,6 @@ TheIsle/Binaries/Win64/*
 !TheIsle/Binaries/Win64/ue4ss/
 !TheIsle/Binaries/Win64/ue4ss/**
 /TheIsle/Binaries/Win64/ue4ss/*.log
+/TheIsle/Binaries/Win64/ue4ss/Mods/*/Saved/*
+!/TheIsle/Binaries/Win64/ue4ss/Mods/*/Saved/config.example.json
 tpn-dino/public/hud/**
