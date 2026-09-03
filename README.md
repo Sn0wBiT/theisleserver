@@ -12,9 +12,23 @@ updates, with faction and territory systems under active development.
 > This project is still under development. Proximity voice chat is not yet
 > implemented, and the territory features are not complete.
 
+## Screenshots
+
+### Launcher
+
+![TPN Dino launcher](docs/images/launcher_image.png)
+
+### In-game HUD
+
+![TPN Dino in-game HUD](docs/images/the_isle_image.png)
+
 ## Architecture
 
 ![TPN Isle Server architecture](docs/images/flowchart.png)
+
+> [!NOTE]
+> This architecture uses an external HUD and bridge because client-side
+> modding is not supported yet.
 
 The preferred game transport is batched HTTP over loopback. If the native
 transport is unavailable, the mod and bridge can fall back to NDJSON files.
