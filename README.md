@@ -168,6 +168,11 @@ Production deployment keeps the game installation and persistent data on the
 server while packaging only the bridge and standalone Next.js runtime. From a
 Windows checkout:
 
+> [!NOTE]
+> The bundled `TPNIsleControl/runtime/node/node.exe` is used for Windows
+> deployment. You can replace it with a compatible Node.js runtime or customize
+> the deployment scripts to use the Node.js installation from your environment.
+
 ```powershell
 .\deploy\windows\Deploy-TPNIsleServer.ps1 -DestinationRoot D:\TheIsleServer
 ```
